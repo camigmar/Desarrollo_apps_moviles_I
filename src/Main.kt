@@ -12,7 +12,22 @@ fun main() {
     // Datos de la pizza
     val nombrePizza: String = "Pepperoni"
     val precioUnitario: Double = 8990.0
-    var ingredientesDisponibles: Int = 10
+
+    // Inventario de ingredientes (en unidades)
+    val inventario = mutableMapOf(
+        "masa" to 20,
+        "salsa de tomate" to 20,
+        "queso" to 20,
+        "pepperoni" to 10
+    )
+
+    // Receta: unidades de cada ingrediente que usa UNA pizza Pepperoni
+    val recetaPepperoni = mapOf(
+        "masa" to 1,
+        "salsa de tomate" to 1,
+        "queso" to 2,
+        "pepperoni" to 3
+    )
 
     // Datos del pedido
     val idPedido: Int = 1001
@@ -99,16 +114,39 @@ fun main() {
 
     // ---------- 4. Verificación de stock y repartidor ----------
 
-    // Cada pizza usa 1 unidad de ingredientes
-    val pedidoConfirmado: Boolean = ingredientesDisponibles >= cantidadPizzas
+    // Revisar cada ingrediente de la receta y guardar los que no alcanzan
+    val ingredientesFaltantes = mutableListOf<String>()
+    for ((ingrediente, cantidadPorPizza) in recetaPepperoni) {
+        val necesario = cantidadPorPizza * cantidadPizzas
+        val disponible = inventario[ingrediente] ?: 0
+        when {
+            necesario <= disponible -> println("OK: $ingrediente (necesario: $necesario, disponible: $disponible)")
+            else -> ingredientesFaltantes.add(ingrediente)
+        }
+    }
+
+    val pedidoConfirmado: Boolean = ingredientesFaltantes.isEmpty()
 
     estadoPedido = if (pedidoConfirmado) {
-        ingredientesDisponibles = ingredientesDisponibles - cantidadPizzas
-        println("\nPedido confirmado. Ingredientes restantes: $ingredientesDisponibles")
+        // Descontar del inventario lo que usa el pedido
+        for ((ingrediente, cantidadPorPizza) in recetaPepperoni) {
+            inventario[ingrediente] = (inventario[ingrediente] ?: 0) - cantidadPorPizza * cantidadPizzas
+        }
+        println("\nPedido confirmado. Inventario restante: $inventario")
         "Preparación"
     } else {
-        println("\nEl pedido no puede completarse: solo hay $ingredientesDisponibles unidades de ingredientes.")
-        "Rechazado por falta de stock"
+        println("\nEl pedido no puede completarse. Faltan los siguientes ingredientes:")
+        for (ingrediente in ingredientesFaltantes) {
+            val necesario = (recetaPepperoni[ingrediente] ?: 0) * cantidadPizzas
+            val disponible = inventario[ingrediente] ?: 0
+            val faltan = necesario - disponible
+            println("- $ingrediente: necesario $necesario, disponible $disponible")
+            println("  Pasos para reabastecer:")
+            println("  1. Contactar al proveedor.")
+            println("  2. Solicitar $faltan unidades de $ingrediente.")
+            println("  3. Actualizar el inventario.")
+        }
+        "Rechazado por falta de ingredientes"
     }
 
     // Se asigna repartidor solo si el pedido se confirmó
