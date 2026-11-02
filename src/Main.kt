@@ -1,4 +1,8 @@
 // Mi primera app en Kotlin - Sistema de pedidos de una pizzería
+
+// Clase temporal solo para el reporte de pedidos del día
+data class PedidoDia(val cliente: String, val pizzas: String, val total: Double, val estado: String)
+
 fun main() {
     println("===== PIZZERÍA KOTLIN =====")
 
@@ -175,4 +179,36 @@ fun main() {
     println("  Estado:     $estadoPedido")
     println("  Repartidor: $repartidorAsignado")
     println("========================================")
+
+    // ---------- 6. Reporte de pedidos del día ----------
+
+    // Pedidos de ejemplo del día
+    val pedidosDelDia = arrayOf(
+        PedidoDia("María Soto", "2 Pepperoni", 17980.0, "En preparación"),
+        PedidoDia("Juan Pérez", "1 Napolitana", 9490.0, "Listo"),
+        PedidoDia("Carla Rojas", "3 Hawaiana", 28470.0, "En camino"),
+        PedidoDia("Diego Muñoz", "1 Vegetariana, 1 Pepperoni", 18480.0, "En preparación"),
+        PedidoDia("Valentina Díaz", "4 Margarita", 30564.0, "Listo")
+    )
+
+    // Reporte: una línea por pedido
+    println("\n========== REPORTE DE PEDIDOS DEL DÍA ==========")
+    for (pedido in pedidosDelDia) {
+        println("Cliente: ${pedido.cliente} | Pizzas: ${pedido.pizzas} | Total: $${pedido.total} | Estado: ${pedido.estado}")
+    }
+
+    // Separar pedidos completados y pendientes
+    val pedidosCompletados = pedidosDelDia.filter { it.estado == "Listo" || it.estado == "En camino" }
+    val pedidosPendientes = pedidosDelDia.filter { it.estado == "En preparación" }
+
+    println("\nCompletados (${pedidosCompletados.size}):")
+    for (pedido in pedidosCompletados) {
+        println("- ${pedido.cliente}: ${pedido.pizzas} (${pedido.estado})")
+    }
+
+    println("\nPendientes (${pedidosPendientes.size}):")
+    for (pedido in pedidosPendientes) {
+        println("- ${pedido.cliente}: ${pedido.pizzas} (${pedido.estado})")
+    }
+    println("================================================")
 }
