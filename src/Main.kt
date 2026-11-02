@@ -3,6 +3,21 @@
 // Clase temporal solo para el reporte de pedidos del día
 data class PedidoDia(val cliente: String, val pizzas: String, val total: Double, val estado: String)
 
+// 10% de descuento si son más de 3 pizzas
+fun calcularDescuento(subtotal: Double, cantidadPizzas: Int): Double {
+    return if (cantidadPizzas > 3) subtotal * 0.10 else 0.0
+}
+
+// IVA de 19% sobre la base
+fun calcularImpuesto(base: Double): Double {
+    return base * 0.19
+}
+
+// Total a pagar: subtotal menos descuento más impuesto
+fun calcularTotal(subtotal: Double, descuento: Double, impuesto: Double): Double {
+    return subtotal - descuento + impuesto
+}
+
 fun main() {
     println("===== PIZZERÍA KOTLIN =====")
 
@@ -127,13 +142,15 @@ fun main() {
     // ---------- 3. Cálculo del total ----------
 
     val subtotal: Double = precioUnitario * cantidadPizzas
-    // 10% de descuento si son más de 3 pizzas
-    val descuento: Double = if (cantidadPizzas > 3) subtotal * 0.10 else 0.0
-    totalPedido = subtotal - descuento
+    val descuento: Double = calcularDescuento(subtotal, cantidadPizzas)
+    // El IVA se calcula sobre el monto ya descontado
+    val impuesto: Double = calcularImpuesto(subtotal - descuento)
+    totalPedido = calcularTotal(subtotal, descuento, impuesto)
 
     println("\n--- Detalle del pago ---")
     println("Subtotal: $$subtotal")
     println("Descuento: $$descuento")
+    println("Impuesto (19%): $$impuesto")
     println("Total: $$totalPedido")
 
     // ---------- 4. Verificación de stock y repartidor ----------
@@ -197,6 +214,7 @@ fun main() {
     println("\n[Pedido]")
     println("  Cantidad:   $cantidadPizzas")
     println("  Subtotal:   $${precioUnitario * cantidadPizzas}")
+    println("  Impuesto (19%): $$impuesto")
     println("  Total:      $$totalPedido (descuento: $$descuento)")
     println("  Estado:     $estadoPedido")
     println("  Repartidor: $repartidorAsignado")
