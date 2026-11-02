@@ -12,6 +12,7 @@ fun main() {
     var nombre: String = ""
     var direccion: String = ""
     var telefono: String = "" // es String porque puede empezar con 0
+    var correo: String = ""
 
     // Datos de la pizza
     val nombrePizza: String = "Pepperoni"
@@ -70,18 +71,37 @@ fun main() {
         textoTelefono = entradaTelefono.trim()
     }
 
-    // El teléfono es válido si tiene entre 8 y 12 caracteres y es un número
-    if (textoTelefono.length >= 8 && textoTelefono.length <= 12 && textoTelefono.toLongOrNull() != null) {
+    // El teléfono es válido si tiene solo dígitos, entre 8 y 12
+    val regexTelefono = Regex("^\\d{8,12}$")
+    if (regexTelefono.matches(textoTelefono)) {
         telefono = textoTelefono
     } else {
         println("Aviso: teléfono inválido, se asigna valor por defecto.")
-        telefono = "000000000"
+        telefono = "(000) 000-0000"
+    }
+
+    // Leer correo
+    println("Ingrese su correo:")
+    val entradaCorreo = readLine()
+    var textoCorreo: String = ""
+    if (entradaCorreo != null) {
+        textoCorreo = entradaCorreo.trim()
+    }
+
+    // El correo es válido si tiene la forma usuario@dominio.ext
+    val regexCorreo = Regex("^[\\w.+-]+@[\\w-]+\\.[\\w.]+$")
+    if (regexCorreo.matches(textoCorreo)) {
+        correo = textoCorreo
+    } else {
+        println("Aviso: correo inválido, se asigna valor por defecto.")
+        correo = "correo@invalido.com"
     }
 
     println("\n--- Datos del cliente ---")
     println("Nombre: $nombre")
     println("Dirección: $direccion")
     println("Teléfono: $telefono")
+    println("Correo: $correo")
 
     // Leer cantidad de pizzas
     println("\n¿Cuántas pizzas $nombrePizza desea? (precio unitario: $$precioUnitario)")
@@ -167,14 +187,16 @@ fun main() {
     println("\n========== RESUMEN DEL PEDIDO ==========")
     println("Pedido N°: $idPedido")
     println("\n[Cliente]")
-    println("  Nombre:    $nombre")
+    println("  Nombre:    ${nombre.uppercase()}")
     println("  Dirección: $direccion")
     println("  Teléfono:  $telefono")
+    println("  Correo:    $correo")
     println("\n[Pizza]")
     println("  Nombre: $nombrePizza")
     println("  Precio: $$precioUnitario")
     println("\n[Pedido]")
     println("  Cantidad:   $cantidadPizzas")
+    println("  Subtotal:   $${precioUnitario * cantidadPizzas}")
     println("  Total:      $$totalPedido (descuento: $$descuento)")
     println("  Estado:     $estadoPedido")
     println("  Repartidor: $repartidorAsignado")
