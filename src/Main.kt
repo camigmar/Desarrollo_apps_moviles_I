@@ -1,10 +1,53 @@
 // Mi primera app en Kotlin - Sistema de pedidos de una pizzería
 
-// Clase temporal solo para el reporte de pedidos del día
-data class PedidoDia(val cliente: String, val pizzas: String, val total: Double, val estado: String)
-
 // Clase temporal para los repartidores; se reemplazará por las clases reales más adelante
 data class RepartidorTemp(val nombre: String, val distanciaKm: Double, val disponible: Boolean)
+
+// Un producto de la carta con su receta (cantidad de cada ingrediente por unidad)
+class Producto(val nombre: String, val precio: Double, val ingredientes: Map<String, Int>) {
+
+    // Descripción con nombre, precio e ingredientes
+    fun detallarProducto(): String {
+        val textoIngredientes = ingredientes.map { "${it.key} x${it.value}" }.joinToString(", ")
+        return "$nombre - $$precio | Ingredientes: $textoIngredientes"
+    }
+}
+
+// Un pedido de un cliente con los productos que pidió
+class Pedido(val cliente: String, val productos: List<Producto>) {
+
+    // Solo se cambia con cambiarEstado() para que siempre sea un estado válido
+    var estado: String = "En preparación"
+        private set
+
+    // Suma de los precios de todos los productos
+    fun calcularSubtotal(): Double {
+        return productos.sumOf { it.precio }
+    }
+
+    // Total con descuento e impuesto, usando las funciones existentes
+    fun calcularTotal(): Double {
+        val subtotal = calcularSubtotal()
+        val descuento = calcularDescuento(subtotal, productos.size)
+        val impuesto = calcularImpuesto(subtotal - descuento)
+        return calcularTotal(subtotal, descuento, impuesto)
+    }
+
+    // Cantidad por producto, ejemplo: "2 Pepperoni, 1 Vegetariana"
+    fun resumirProductos(): String {
+        return productos.groupBy { it.nombre }.map { "${it.value.size} ${it.key}" }.joinToString(", ")
+    }
+
+    // Cambia el estado solo si es uno de los permitidos
+    fun cambiarEstado(nuevoEstado: String) {
+        val estadosValidos = listOf("En preparación", "Listo", "En camino")
+        if (nuevoEstado in estadosValidos) {
+            estado = nuevoEstado
+        } else {
+            println("Aviso: estado \"$nuevoEstado\" no válido. El pedido sigue \"$estado\".")
+        }
+    }
+}
 
 // 10% de descuento si son más de 3 pizzas
 fun calcularDescuento(subtotal: Double, cantidadPizzas: Int): Double {
@@ -48,10 +91,6 @@ fun main() {
     var telefono: String = "" // es String porque puede empezar con 0
     var correo: String = ""
 
-    // Datos de la pizza
-    val nombrePizza: String = "Pepperoni"
-    val precioUnitario: Double = 8990.0
-
     // Inventario de ingredientes (en unidades)
     val inventario = mutableMapOf(
         "masa" to 20,
@@ -67,6 +106,9 @@ fun main() {
         "queso" to 2,
         "pepperoni" to 3
     )
+
+    // Pizza que vende el programa
+    val productoPepperoni = Producto("Pepperoni", 8990.0, recetaPepperoni)
 
     // Datos del pedido
     val idPedido: Int = 1001
@@ -144,7 +186,7 @@ fun main() {
     println("Correo: $correo")
 
     // Leer cantidad de pizzas
-    println("\n¿Cuántas pizzas $nombrePizza desea? (precio unitario: $$precioUnitario)")
+    println("\n¿Cuántas pizzas ${productoPepperoni.nombre} desea? (precio unitario: $${productoPepperoni.precio})")
     val entradaCantidad = readLine()
     var textoCantidad: String = ""
     if (entradaCantidad != null) {
@@ -166,11 +208,15 @@ fun main() {
 
     // ---------- 3. Cálculo del total ----------
 
-    val subtotal: Double = precioUnitario * cantidadPizzas
+    // El pedido lleva la pizza repetida tantas veces como pidió el cliente
+    val pedidoCliente = Pedido(nombre, List(cantidadPizzas) { productoPepperoni })
+
+    val subtotal: Double = pedidoCliente.calcularSubtotal()
+    // Descuento e impuesto se calculan aparte solo para mostrarlos en el detalle
     val descuento: Double = calcularDescuento(subtotal, cantidadPizzas)
     // El IVA se calcula sobre el monto ya descontado
     val impuesto: Double = calcularImpuesto(subtotal - descuento)
-    totalPedido = calcularTotal(subtotal, descuento, impuesto)
+    totalPedido = pedidoCliente.calcularTotal()
 
     println("\n--- Detalle del pago ---")
     println("Subtotal: $$subtotal")
@@ -199,7 +245,7 @@ fun main() {
         // Descontar del inventario lo que usa el pedido
         descontarInventario(inventario, necesarios)
         println("\nPedido confirmado. Inventario restante: $inventario")
-        "Preparación"
+        pedidoCliente.estado
     } else {
         println("\nEl pedido no puede completarse. Faltan los siguientes ingredientes:")
         for (ingrediente in ingredientesFaltantes) {
@@ -239,11 +285,10 @@ fun main() {
     println("  Teléfono:  $telefono")
     println("  Correo:    $correo")
     println("\n[Pizza]")
-    println("  Nombre: $nombrePizza")
-    println("  Precio: $$precioUnitario")
+    println("  ${productoPepperoni.detallarProducto()}")
     println("\n[Pedido]")
     println("  Cantidad:   $cantidadPizzas")
-    println("  Subtotal:   $${precioUnitario * cantidadPizzas}")
+    println("  Subtotal:   $${pedidoCliente.calcularSubtotal()}")
     println("  Impuesto (19%): $$impuesto")
     println("  Total:      $$totalPedido (descuento: $$descuento)")
     println("  Estado:     $estadoPedido")
@@ -252,19 +297,30 @@ fun main() {
 
     // ---------- 6. Reporte de pedidos del día ----------
 
+    // Otras pizzas de la carta, solo para los pedidos de ejemplo
+    val productoNapolitana = Producto("Napolitana", 9490.0, mapOf("masa" to 1, "salsa de tomate" to 1, "queso" to 2, "tomate" to 2))
+    val productoHawaiana = Producto("Hawaiana", 9490.0, mapOf("masa" to 1, "salsa de tomate" to 1, "queso" to 2, "piña" to 2, "jamón" to 2))
+    val productoVegetariana = Producto("Vegetariana", 9490.0, mapOf("masa" to 1, "salsa de tomate" to 1, "queso" to 2, "verduras" to 3))
+    val productoMargarita = Producto("Margarita", 8490.0, mapOf("masa" to 1, "salsa de tomate" to 1, "queso" to 2, "albahaca" to 1))
+
     // Pedidos de ejemplo del día
     val pedidosDelDia = arrayOf(
-        PedidoDia("María Soto", "2 Pepperoni", 17980.0, "En preparación"),
-        PedidoDia("Juan Pérez", "1 Napolitana", 9490.0, "Listo"),
-        PedidoDia("Carla Rojas", "3 Hawaiana", 28470.0, "En camino"),
-        PedidoDia("Diego Muñoz", "1 Vegetariana, 1 Pepperoni", 18480.0, "En preparación"),
-        PedidoDia("Valentina Díaz", "4 Margarita", 30564.0, "Listo")
+        Pedido("María Soto", listOf(productoPepperoni, productoPepperoni)),
+        Pedido("Juan Pérez", listOf(productoNapolitana)),
+        Pedido("Carla Rojas", listOf(productoHawaiana, productoHawaiana, productoHawaiana)),
+        Pedido("Diego Muñoz", listOf(productoVegetariana, productoPepperoni)),
+        Pedido("Valentina Díaz", listOf(productoMargarita, productoMargarita, productoMargarita, productoMargarita))
     )
+
+    // Todos parten "En preparación"; se actualizan los que ya avanzaron
+    pedidosDelDia[1].cambiarEstado("Listo")
+    pedidosDelDia[2].cambiarEstado("En camino")
+    pedidosDelDia[4].cambiarEstado("Listo")
 
     // Reporte: una línea por pedido
     println("\n========== REPORTE DE PEDIDOS DEL DÍA ==========")
     for (pedido in pedidosDelDia) {
-        println("Cliente: ${pedido.cliente} | Pizzas: ${pedido.pizzas} | Total: $${pedido.total} | Estado: ${pedido.estado}")
+        println("Cliente: ${pedido.cliente} | Pizzas: ${pedido.resumirProductos()} | Total: $${pedido.calcularTotal()} | Estado: ${pedido.estado}")
     }
 
     // Separar pedidos completados y pendientes
@@ -273,12 +329,12 @@ fun main() {
 
     println("\nCompletados (${pedidosCompletados.size}):")
     for (pedido in pedidosCompletados) {
-        println("- ${pedido.cliente}: ${pedido.pizzas} (${pedido.estado})")
+        println("- ${pedido.cliente}: ${pedido.resumirProductos()} (${pedido.estado})")
     }
 
     println("\nPendientes (${pedidosPendientes.size}):")
     for (pedido in pedidosPendientes) {
-        println("- ${pedido.cliente}: ${pedido.pizzas} (${pedido.estado})")
+        println("- ${pedido.cliente}: ${pedido.resumirProductos()} (${pedido.estado})")
     }
     println("================================================")
 }
