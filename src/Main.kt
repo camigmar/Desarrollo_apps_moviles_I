@@ -3,6 +3,9 @@
 // Clase temporal solo para el reporte de pedidos del día
 data class PedidoDia(val cliente: String, val pizzas: String, val total: Double, val estado: String)
 
+// Clase temporal para los repartidores; se reemplazará por las clases reales más adelante
+data class RepartidorTemp(val nombre: String, val distanciaKm: Double, val disponible: Boolean)
+
 // 10% de descuento si son más de 3 pizzas
 fun calcularDescuento(subtotal: Double, cantidadPizzas: Int): Double {
     return if (cantidadPizzas > 3) subtotal * 0.10 else 0.0
@@ -71,7 +74,13 @@ fun main() {
     var totalPedido: Double = 0.0
     var estadoPedido: String = ""
 
-    // Repartidor
+    // Repartidores con su distancia al local
+    val repartidores = listOf(
+        RepartidorTemp("Ana", 3.5, true),
+        RepartidorTemp("Pedro", 1.2, false),
+        RepartidorTemp("Luis", 2.0, true),
+        RepartidorTemp("Sofía", 4.8, true)
+    )
     var repartidorAsignado: String = "Sin asignar"
 
     // ---------- 2. Entrada / salida ----------
@@ -208,11 +217,16 @@ fun main() {
 
     // Se asigna repartidor solo si el pedido se confirmó
     if (pedidoConfirmado) {
-        repartidorAsignado = when (idPedido % 3) {
-            0 -> "Ana"
-            1 -> "Pedro"
-            else -> "Luis"
+        // El más cercano que esté disponible
+        val repartidorCercano = repartidores.sortedBy { it.distanciaKm }.find { it.disponible }
+        if (repartidorCercano != null) {
+            repartidorAsignado = repartidorCercano.nombre
+            println("Repartidor asignado: ${repartidorCercano.nombre} (a ${repartidorCercano.distanciaKm} km)")
+        } else {
+            repartidorAsignado = "Sin repartidores disponibles"
         }
+    } else {
+        repartidorAsignado = "No asignado (pedido rechazado)"
     }
 
     // ---------- 5. Resumen final ----------
