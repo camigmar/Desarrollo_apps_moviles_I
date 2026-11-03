@@ -1,7 +1,32 @@
 // Mi primera app en Kotlin - Sistema de pedidos de una pizzería
 
-// Clase temporal para los repartidores; se reemplazará por las clases reales más adelante
-data class RepartidorTemp(val nombre: String, val distanciaKm: Double, val disponible: Boolean)
+// Clase base para cualquier persona del sistema
+open class Usuario(val nombre: String, val contacto: String) {
+
+    open fun presentarse(): String {
+        return "Soy $nombre, mi contacto es $contacto"
+    }
+}
+
+// Cliente: además del contacto tiene correo y dirección
+class Cliente(nombre: String, telefono: String, val correo: String, val direccion: String) : Usuario(nombre, telefono) {
+
+    override fun presentarse(): String {
+        return "Soy el cliente $nombre | Teléfono: $contacto | Correo: $correo | Dirección: $direccion"
+    }
+}
+
+// Repartidor: tiene distancia al local y si está disponible
+class Repartidor(nombre: String, telefono: String, val distanciaKm: Double, val disponible: Boolean) : Usuario(nombre, telefono) {
+
+    override fun presentarse(): String {
+        return "Soy el repartidor $nombre | Teléfono: $contacto | Estoy a $distanciaKm km"
+    }
+
+    fun entregarPedido(pedido: Pedido): String {
+        return "$nombre entrega el pedido de ${pedido.cliente.nombre} en ${pedido.cliente.direccion}"
+    }
+}
 
 // Un producto de la carta con su receta (cantidad de cada ingrediente por unidad)
 class Producto(val nombre: String, val precio: Double, val ingredientes: Map<String, Int>) {
@@ -14,7 +39,7 @@ class Producto(val nombre: String, val precio: Double, val ingredientes: Map<Str
 }
 
 // Un pedido de un cliente con los productos que pidió
-class Pedido(val cliente: String, val productos: List<Producto>) {
+class Pedido(val cliente: Cliente, val productos: List<Producto>) {
 
     // Solo se cambia con cambiarEstado() para que siempre sea un estado válido
     var estado: String = "En preparación"
@@ -118,12 +143,13 @@ fun main() {
 
     // Repartidores con su distancia al local
     val repartidores = listOf(
-        RepartidorTemp("Ana", 3.5, true),
-        RepartidorTemp("Pedro", 1.2, false),
-        RepartidorTemp("Luis", 2.0, true),
-        RepartidorTemp("Sofía", 4.8, true)
+        Repartidor("Ana", "911111111", 3.5, true),
+        Repartidor("Pedro", "922222222", 1.2, false),
+        Repartidor("Luis", "933333333", 2.0, true),
+        Repartidor("Sofía", "944444444", 4.8, true)
     )
-    var repartidorAsignado: String = "Sin asignar"
+    var repartidorAsignado: Repartidor? = null
+    var textoRepartidor: String = "Sin asignar" // lo que se muestra en el resumen
 
     // ---------- 2. Entrada / salida ----------
 
@@ -185,6 +211,9 @@ fun main() {
     println("Teléfono: $telefono")
     println("Correo: $correo")
 
+    // Cliente real con los datos ya validados
+    val cliente = Cliente(nombre, telefono, correo, direccion)
+
     // Leer cantidad de pizzas
     println("\n¿Cuántas pizzas ${productoPepperoni.nombre} desea? (precio unitario: $${productoPepperoni.precio})")
     val entradaCantidad = readLine()
@@ -209,7 +238,7 @@ fun main() {
     // ---------- 3. Cálculo del total ----------
 
     // El pedido lleva la pizza repetida tantas veces como pidió el cliente
-    val pedidoCliente = Pedido(nombre, List(cantidadPizzas) { productoPepperoni })
+    val pedidoCliente = Pedido(cliente, List(cantidadPizzas) { productoPepperoni })
 
     val subtotal: Double = pedidoCliente.calcularSubtotal()
     // Descuento e impuesto se calculan aparte solo para mostrarlos en el detalle
@@ -266,13 +295,14 @@ fun main() {
         // El más cercano que esté disponible
         val repartidorCercano = repartidores.sortedBy { it.distanciaKm }.find { it.disponible }
         if (repartidorCercano != null) {
-            repartidorAsignado = repartidorCercano.nombre
+            repartidorAsignado = repartidorCercano
+            textoRepartidor = repartidorCercano.nombre
             println("Repartidor asignado: ${repartidorCercano.nombre} (a ${repartidorCercano.distanciaKm} km)")
         } else {
-            repartidorAsignado = "Sin repartidores disponibles"
+            textoRepartidor = "Sin repartidores disponibles"
         }
     } else {
-        repartidorAsignado = "No asignado (pedido rechazado)"
+        textoRepartidor = "No asignado (pedido rechazado)"
     }
 
     // ---------- 5. Resumen final ----------
@@ -292,8 +322,25 @@ fun main() {
     println("  Impuesto (19%): $$impuesto")
     println("  Total:      $$totalPedido (descuento: $$descuento)")
     println("  Estado:     $estadoPedido")
-    println("  Repartidor: $repartidorAsignado")
+    println("  Repartidor: $textoRepartidor")
     println("========================================")
+
+    // Polimorfismo: cada usuario se presenta a su manera
+    val usuariosDelPedido = if (repartidorAsignado != null) {
+        listOf<Usuario>(cliente, repartidorAsignado)
+    } else {
+        listOf<Usuario>(cliente)
+    }
+
+    println("\n--- Personas del pedido ---")
+    for (usuario in usuariosDelPedido) {
+        println(usuario.presentarse())
+    }
+
+    // Entrega solo si el pedido se confirmó y hay repartidor
+    if (pedidoConfirmado && repartidorAsignado != null) {
+        println(repartidorAsignado.entregarPedido(pedidoCliente))
+    }
 
     // ---------- 6. Reporte de pedidos del día ----------
 
@@ -305,11 +352,11 @@ fun main() {
 
     // Pedidos de ejemplo del día
     val pedidosDelDia = arrayOf(
-        Pedido("María Soto", listOf(productoPepperoni, productoPepperoni)),
-        Pedido("Juan Pérez", listOf(productoNapolitana)),
-        Pedido("Carla Rojas", listOf(productoHawaiana, productoHawaiana, productoHawaiana)),
-        Pedido("Diego Muñoz", listOf(productoVegetariana, productoPepperoni)),
-        Pedido("Valentina Díaz", listOf(productoMargarita, productoMargarita, productoMargarita, productoMargarita))
+        Pedido(Cliente("María Soto", "987654321", "maria.soto@correo.cl", "Los Aromos 123"), listOf(productoPepperoni, productoPepperoni)),
+        Pedido(Cliente("Juan Pérez", "976543210", "juan.perez@correo.cl", "Av. Matta 456"), listOf(productoNapolitana)),
+        Pedido(Cliente("Carla Rojas", "965432109", "carla.rojas@correo.cl", "Pasaje Sur 789"), listOf(productoHawaiana, productoHawaiana, productoHawaiana)),
+        Pedido(Cliente("Diego Muñoz", "954321098", "diego.munoz@correo.cl", "Calle Norte 321"), listOf(productoVegetariana, productoPepperoni)),
+        Pedido(Cliente("Valentina Díaz", "943210987", "valentina.diaz@correo.cl", "Av. Grecia 654"), listOf(productoMargarita, productoMargarita, productoMargarita, productoMargarita))
     )
 
     // Todos parten "En preparación"; se actualizan los que ya avanzaron
@@ -320,7 +367,7 @@ fun main() {
     // Reporte: una línea por pedido
     println("\n========== REPORTE DE PEDIDOS DEL DÍA ==========")
     for (pedido in pedidosDelDia) {
-        println("Cliente: ${pedido.cliente} | Pizzas: ${pedido.resumirProductos()} | Total: $${pedido.calcularTotal()} | Estado: ${pedido.estado}")
+        println("Cliente: ${pedido.cliente.nombre} | Pizzas: ${pedido.resumirProductos()} | Total: $${pedido.calcularTotal()} | Estado: ${pedido.estado}")
     }
 
     // Separar pedidos completados y pendientes
@@ -329,12 +376,12 @@ fun main() {
 
     println("\nCompletados (${pedidosCompletados.size}):")
     for (pedido in pedidosCompletados) {
-        println("- ${pedido.cliente}: ${pedido.resumirProductos()} (${pedido.estado})")
+        println("- ${pedido.cliente.nombre}: ${pedido.resumirProductos()} (${pedido.estado})")
     }
 
     println("\nPendientes (${pedidosPendientes.size}):")
     for (pedido in pedidosPendientes) {
-        println("- ${pedido.cliente}: ${pedido.resumirProductos()} (${pedido.estado})")
+        println("- ${pedido.cliente.nombre}: ${pedido.resumirProductos()} (${pedido.estado})")
     }
     println("================================================")
 }
