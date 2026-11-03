@@ -128,7 +128,7 @@ fun reabastecerInventario(inventario: MutableMap<String, Int>, ingrediente: Stri
 
 // Monto en pesos chilenos, con punto de miles y sin decimales. Ejemplo: "$26.970"
 fun formatearMonto(monto: Double): String {
-    return String.format(Locale("es", "CL"), "$%,.0f", monto)
+    return String.format(Locale.forLanguageTag("es-CL"), "$%,.0f", monto)
 }
 
 // Resumen completo del pedido listo para imprimir
