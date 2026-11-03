@@ -1,5 +1,7 @@
 // Mi primera app en Kotlin - Sistema de pedidos de una pizzería
 
+import java.util.Locale
+
 // Clase base para cualquier persona del sistema
 open class Usuario(val nombre: String, val contacto: String) {
 
@@ -56,12 +58,19 @@ class Pedido(val cliente: Cliente, val productos: List<Producto>, val notas: Str
         return productos.sumOf { it.precio }
     }
 
+    // Descuento del pedido, usando la función existente
+    fun calcularDescuento(): Double {
+        return calcularDescuento(calcularSubtotal(), productos.size)
+    }
+
+    // IVA sobre el monto ya descontado, usando la función existente
+    fun calcularImpuesto(): Double {
+        return calcularImpuesto(calcularSubtotal() - calcularDescuento())
+    }
+
     // Total con descuento e impuesto, usando las funciones existentes
     fun calcularTotal(): Double {
-        val subtotal = calcularSubtotal()
-        val descuento = calcularDescuento(subtotal, productos.size)
-        val impuesto = calcularImpuesto(subtotal - descuento)
-        return calcularTotal(subtotal, descuento, impuesto)
+        return calcularTotal(calcularSubtotal(), calcularDescuento(), calcularImpuesto())
     }
 
     // Cantidad por producto, ejemplo: "2 Pepperoni, 1 Vegetariana"
@@ -117,6 +126,61 @@ fun reabastecerInventario(inventario: MutableMap<String, Int>, ingrediente: Stri
     inventario[ingrediente] = (inventario[ingrediente] ?: 0) + cantidad
 }
 
+// Monto en pesos chilenos, con punto de miles y sin decimales. Ejemplo: "$26.970"
+fun formatearMonto(monto: Double): String {
+    return String.format(Locale("es", "CL"), "$%,.0f", monto)
+}
+
+// Resumen completo del pedido listo para imprimir
+fun generarResumen(idPedido: Int, pedido: Pedido, estado: String, repartidor: String): String {
+    val lineaDoble = "=".repeat(50)
+    val lineaSimple = "-".repeat(50)
+    val resumen = StringBuilder()
+
+    // Encabezado
+    resumen.appendLine(lineaDoble)
+    resumen.appendLine("            RESUMEN DEL PEDIDO N° $idPedido")
+    resumen.appendLine(lineaDoble)
+
+    // Cliente
+    resumen.appendLine("CLIENTE")
+    resumen.appendLine("  Nombre:    ${pedido.cliente.nombre}")
+    resumen.appendLine("  Teléfono:  ${pedido.cliente.contacto}")
+    resumen.appendLine("  Correo:    ${pedido.cliente.correo}")
+    resumen.appendLine("  Dirección: ${pedido.cliente.direccion}")
+    resumen.appendLine(lineaSimple)
+
+    // Productos: una línea por cada producto distinto
+    resumen.appendLine("PRODUCTOS")
+    for ((nombreProducto, productosIguales) in pedido.productos.groupBy { it.nombre }) {
+        val precioUnitario = productosIguales.first().precio
+        val cantidad = productosIguales.size
+        val subtotalLinea = precioUnitario * cantidad
+        resumen.appendLine("  ${nombreProducto.padEnd(14)} ${formatearMonto(precioUnitario).padStart(9)} x $cantidad = ${formatearMonto(subtotalLinea).padStart(10)}")
+    }
+    resumen.appendLine(lineaSimple)
+
+    // Totales
+    resumen.appendLine("TOTALES")
+    resumen.appendLine("  ${"Subtotal:".padEnd(18)}${formatearMonto(pedido.calcularSubtotal()).padStart(12)}")
+    resumen.appendLine("  ${"Descuento:".padEnd(18)}${formatearMonto(pedido.calcularDescuento()).padStart(12)}")
+    resumen.appendLine("  ${"Impuesto (19%):".padEnd(18)}${formatearMonto(pedido.calcularImpuesto()).padStart(12)}")
+    resumen.appendLine("  ${"TOTAL:".padEnd(18)}${formatearMonto(pedido.calcularTotal()).padStart(12)}")
+    // Si fue rechazado los montos son solo referenciales
+    if (estado.startsWith("Rechazado")) {
+        resumen.appendLine("  (Pedido rechazado: este monto NO se cobrará)")
+    }
+    resumen.appendLine(lineaSimple)
+
+    // Estado, repartidor y notas
+    resumen.appendLine("  Estado:     $estado")
+    resumen.appendLine("  Repartidor: $repartidor")
+    resumen.appendLine("  Notas:      ${pedido.notas ?: "Sin notas"}")
+    resumen.append(lineaDoble)
+
+    return resumen.toString()
+}
+
 fun main() {
     println("===== PIZZERÍA KOTLIN =====")
 
@@ -150,7 +214,6 @@ fun main() {
     // Datos del pedido
     val idPedido: Int = 1001
     var cantidadPizzas: Int = 1
-    var totalPedido: Double = 0.0
     var estadoPedido: String = ""
 
     // Repartidores con su distancia al local
@@ -217,12 +280,6 @@ fun main() {
         correo = "correo@invalido.com"
     }
 
-    println("\n--- Datos del cliente ---")
-    println("Nombre: $nombre")
-    println("Dirección: $direccion")
-    println("Teléfono: $telefono")
-    println("Correo: $correo")
-
     // Cliente real con los datos ya validados
     val cliente = Cliente(nombre, telefono, correo, direccion)
 
@@ -262,20 +319,8 @@ fun main() {
     // ---------- 3. Cálculo del total ----------
 
     // El pedido lleva la pizza repetida tantas veces como pidió el cliente
+    // Los montos (subtotal, descuento, impuesto y total) los calcula el propio pedido
     val pedidoCliente = Pedido(cliente, List(cantidadPizzas) { productoPepperoni }, notasPedido)
-
-    val subtotal: Double = pedidoCliente.calcularSubtotal()
-    // Descuento e impuesto se calculan aparte solo para mostrarlos en el detalle
-    val descuento: Double = calcularDescuento(subtotal, cantidadPizzas)
-    // El IVA se calcula sobre el monto ya descontado
-    val impuesto: Double = calcularImpuesto(subtotal - descuento)
-    totalPedido = pedidoCliente.calcularTotal()
-
-    println("\n--- Detalle del pago ---")
-    println("Subtotal: $$subtotal")
-    println("Descuento: $$descuento")
-    println("Impuesto (19%): $$impuesto")
-    println("Total: $$totalPedido")
 
     // ---------- 4. Verificación de stock y repartidor ----------
 
@@ -331,26 +376,8 @@ fun main() {
 
     // ---------- 5. Resumen final ----------
 
-    println("\n========== RESUMEN DEL PEDIDO ==========")
-    println("Pedido N°: $idPedido")
-    println("\n[Cliente]")
-    println("  Nombre:    ${nombre.uppercase()}")
-    println("  Dirección: $direccion")
-    println("  Teléfono:  $telefono")
-    println("  Correo:    $correo")
-    println("\n[Pizza]")
-    println("  ${productoPepperoni.detallarProducto()}")
-    println("\n[Pedido]")
-    println("  Cantidad:   $cantidadPizzas")
-    println("  Subtotal:   $${pedidoCliente.calcularSubtotal()}")
-    println("  Impuesto (19%): $$impuesto")
-    println("  Total:      $$totalPedido (descuento: $$descuento)")
-    println("  Estado:     $estadoPedido")
-    println("  Notas:      ${pedidoCliente.notas ?: "Sin notas"}")
-    // ?. devuelve null si no hay notas, y ?: lo reemplaza por 0
-    println("  Largo nota: ${pedidoCliente.notas?.length ?: 0} caracteres")
-    println("  Repartidor: $textoRepartidor")
-    println("========================================")
+    println()
+    println(generarResumen(idPedido, pedidoCliente, estadoPedido, textoRepartidor))
 
     // Notificación solo a clientes registrados (con correo válido) y si el pedido se confirmó
     if (pedidoConfirmado) {
