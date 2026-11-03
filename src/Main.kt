@@ -44,7 +44,8 @@ class Producto(val nombre: String, val precio: Double, val ingredientes: Map<Str
 }
 
 // Un pedido de un cliente con los productos que pidió
-class Pedido(val cliente: Cliente, val productos: List<Producto>) {
+// Las notas son opcionales: si no se indican quedan en null
+class Pedido(val cliente: Cliente, val productos: List<Producto>, val notas: String? = null) {
 
     // Solo se cambia con cambiarEstado() para que siempre sea un estado válido
     var estado: String = "En preparación"
@@ -251,10 +252,17 @@ fun main() {
         }
     }
 
+    // Leer notas opcionales: línea vacía o sin entrada quedan en null
+    println("\n¿Desea agregar notas al pedido? (Enter para omitir)")
+    val notasPedido: String? = readLine()?.trim()?.takeIf { it.isNotEmpty() }
+
+    // Solo se muestra si hay notas
+    notasPedido?.let { println("Nota recibida: $it") }
+
     // ---------- 3. Cálculo del total ----------
 
     // El pedido lleva la pizza repetida tantas veces como pidió el cliente
-    val pedidoCliente = Pedido(cliente, List(cantidadPizzas) { productoPepperoni })
+    val pedidoCliente = Pedido(cliente, List(cantidadPizzas) { productoPepperoni }, notasPedido)
 
     val subtotal: Double = pedidoCliente.calcularSubtotal()
     // Descuento e impuesto se calculan aparte solo para mostrarlos en el detalle
@@ -338,8 +346,20 @@ fun main() {
     println("  Impuesto (19%): $$impuesto")
     println("  Total:      $$totalPedido (descuento: $$descuento)")
     println("  Estado:     $estadoPedido")
+    println("  Notas:      ${pedidoCliente.notas ?: "Sin notas"}")
+    // ?. devuelve null si no hay notas, y ?: lo reemplaza por 0
+    println("  Largo nota: ${pedidoCliente.notas?.length ?: 0} caracteres")
     println("  Repartidor: $textoRepartidor")
     println("========================================")
+
+    // Notificación solo a clientes registrados (con correo válido) y si el pedido se confirmó
+    if (pedidoConfirmado) {
+        cliente.correo.takeIf { it != "correo@invalido.com" }?.let {
+            println("\nNotificación enviada a $it: su pedido está en preparación.")
+        } ?: run {
+            println("\nNo se envió notificación: cliente sin correo válido.")
+        }
+    }
 
     // Polimorfismo: cada usuario se presenta a su manera
     val usuariosDelPedido = if (repartidorAsignado != null) {
