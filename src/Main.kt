@@ -31,6 +31,11 @@ class Repartidor(nombre: String, telefono: String, val distanciaKm: Double, val 
 // Un producto de la carta con su receta (cantidad de cada ingrediente por unidad)
 class Producto(val nombre: String, val precio: Double, val ingredientes: Map<String, Int>) {
 
+    // No se permite crear un producto con precio 0 o negativo
+    init {
+        require(precio > 0) { "El precio debe ser mayor a 0" }
+    }
+
     // Descripción con nombre, precio e ingredientes
     fun detallarProducto(): String {
         val textoIngredientes = ingredientes.map { "${it.key} x${it.value}" }.joinToString(", ")
@@ -103,6 +108,12 @@ fun descontarInventario(inventario: MutableMap<String, Int>, necesarios: Map<Str
     for ((ingrediente, cantidad) in necesarios) {
         inventario[ingrediente] = (inventario[ingrediente] ?: 0) - cantidad
     }
+}
+
+// Suma unidades de un ingrediente al inventario; la cantidad debe ser positiva
+fun reabastecerInventario(inventario: MutableMap<String, Int>, ingrediente: String, cantidad: Int) {
+    require(cantidad > 0) { "La cantidad a reabastecer debe ser mayor a 0 (se recibió $cantidad)" }
+    inventario[ingrediente] = (inventario[ingrediente] ?: 0) + cantidad
 }
 
 fun main() {
@@ -214,25 +225,30 @@ fun main() {
     // Cliente real con los datos ya validados
     val cliente = Cliente(nombre, telefono, correo, direccion)
 
-    // Leer cantidad de pizzas
-    println("\n¿Cuántas pizzas ${productoPepperoni.nombre} desea? (precio unitario: $${productoPepperoni.precio})")
-    val entradaCantidad = readLine()
-    var textoCantidad: String = ""
-    if (entradaCantidad != null) {
-        textoCantidad = entradaCantidad.trim()
-    }
+    // Leer cantidad de pizzas: se repite la pregunta hasta que sea válida
+    var cantidadValida = false
+    while (!cantidadValida) {
+        println("\n¿Cuántas pizzas ${productoPepperoni.nombre} desea? (precio unitario: $${productoPepperoni.precio})")
+        val entradaCantidad = readLine()
 
-    // Si no es un número, queda en 0
-    try {
-        cantidadPizzas = textoCantidad.toInt()
-    } catch (e: NumberFormatException) {
-        cantidadPizzas = 0
-    }
+        // Si ya no hay entrada (fin de archivo) se evita un ciclo infinito
+        if (entradaCantidad == null) {
+            println("No se recibió la cantidad, se asigna 1 pizza.")
+            cantidadPizzas = 1
+            break
+        }
 
-    // Mínimo 1 pizza
-    if (cantidadPizzas < 1) {
-        println("Aviso: cantidad inválida, se asigna 1 pizza.")
-        cantidadPizzas = 1
+        try {
+            val cantidadLeida = entradaCantidad.trim().toInt()
+            require(cantidadLeida >= 1) { "Error: la cantidad debe ser al menos 1." }
+            cantidadPizzas = cantidadLeida
+            cantidadValida = true
+        } catch (e: NumberFormatException) {
+            // Va primero porque NumberFormatException es un tipo de IllegalArgumentException
+            println("Error: debe ingresar un número entero, por ejemplo 2.")
+        } catch (e: IllegalArgumentException) {
+            println(e.message)
+        }
     }
 
     // ---------- 3. Cálculo del total ----------
@@ -384,4 +400,43 @@ fun main() {
         println("- ${pedido.cliente.nombre}: ${pedido.resumirProductos()} (${pedido.estado})")
     }
     println("================================================")
+
+    // ---------- 7. Demostración de manejo de errores ----------
+
+    println("\n========== DEMOSTRACIÓN DE ERRORES ==========")
+
+    // Precio inválido: el init de Producto lanza IllegalArgumentException
+    println("\nCreando un producto con precio -100.0...")
+    try {
+        val productoPrueba = Producto("Pizza de prueba", -100.0, mapOf("masa" to 1))
+        println("Producto creado: ${productoPrueba.detallarProducto()}")
+    } catch (e: IllegalArgumentException) {
+        println("Error al crear el producto: ${e.message}. Corrija el precio e intente de nuevo.")
+    } finally {
+        println("Validación de precio terminada.")
+    }
+
+    // Reabastecimiento sobre una copia, para no alterar el inventario real
+    val inventarioPrueba = inventario.toMutableMap()
+
+    println("\nReabasteciendo pepperoni con -5 unidades...")
+    try {
+        reabastecerInventario(inventarioPrueba, "pepperoni", -5)
+        println("Inventario actualizado: $inventarioPrueba")
+    } catch (e: IllegalArgumentException) {
+        println("Error al reabastecer: ${e.message}.")
+    } finally {
+        println("Validación de inventario terminada.")
+    }
+
+    println("\nReabasteciendo pepperoni con 15 unidades...")
+    try {
+        reabastecerInventario(inventarioPrueba, "pepperoni", 15)
+        println("Inventario actualizado: $inventarioPrueba")
+    } catch (e: IllegalArgumentException) {
+        println("Error al reabastecer: ${e.message}.")
+    } finally {
+        println("Validación de inventario terminada.")
+    }
+    println("=============================================")
 }
