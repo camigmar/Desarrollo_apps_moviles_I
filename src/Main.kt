@@ -18,6 +18,22 @@ fun calcularTotal(subtotal: Double, descuento: Double, impuesto: Double): Double
     return subtotal - descuento + impuesto
 }
 
+// Cantidad total de cada ingrediente para un lote de pizzas
+fun calcularIngredientesNecesarios(receta: Map<String, Int>, cantidadPizzas: Int): Map<String, Int> {
+    val necesarios = mutableMapOf<String, Int>()
+    for ((ingrediente, cantidadPorPizza) in receta) {
+        necesarios[ingrediente] = cantidadPorPizza * cantidadPizzas
+    }
+    return necesarios
+}
+
+// Resta del inventario lo que usa el pedido
+fun descontarInventario(inventario: MutableMap<String, Int>, necesarios: Map<String, Int>) {
+    for ((ingrediente, cantidad) in necesarios) {
+        inventario[ingrediente] = (inventario[ingrediente] ?: 0) - cantidad
+    }
+}
+
 fun main() {
     println("===== PIZZERÍA KOTLIN =====")
 
@@ -155,10 +171,12 @@ fun main() {
 
     // ---------- 4. Verificación de stock y repartidor ----------
 
-    // Revisar cada ingrediente de la receta y guardar los que no alcanzan
+    // Ingredientes que necesita el pedido completo
+    val necesarios = calcularIngredientesNecesarios(recetaPepperoni, cantidadPizzas)
+
+    // Revisar cada ingrediente necesario y guardar los que no alcanzan
     val ingredientesFaltantes = mutableListOf<String>()
-    for ((ingrediente, cantidadPorPizza) in recetaPepperoni) {
-        val necesario = cantidadPorPizza * cantidadPizzas
+    for ((ingrediente, necesario) in necesarios) {
         val disponible = inventario[ingrediente] ?: 0
         when {
             necesario <= disponible -> println("OK: $ingrediente (necesario: $necesario, disponible: $disponible)")
@@ -170,15 +188,13 @@ fun main() {
 
     estadoPedido = if (pedidoConfirmado) {
         // Descontar del inventario lo que usa el pedido
-        for ((ingrediente, cantidadPorPizza) in recetaPepperoni) {
-            inventario[ingrediente] = (inventario[ingrediente] ?: 0) - cantidadPorPizza * cantidadPizzas
-        }
+        descontarInventario(inventario, necesarios)
         println("\nPedido confirmado. Inventario restante: $inventario")
         "Preparación"
     } else {
         println("\nEl pedido no puede completarse. Faltan los siguientes ingredientes:")
         for (ingrediente in ingredientesFaltantes) {
-            val necesario = (recetaPepperoni[ingrediente] ?: 0) * cantidadPizzas
+            val necesario = necesarios[ingrediente] ?: 0
             val disponible = inventario[ingrediente] ?: 0
             val faltan = necesario - disponible
             println("- $ingrediente: necesario $necesario, disponible $disponible")
