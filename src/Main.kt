@@ -761,7 +761,8 @@ fun main() {
 
     // Pedidos de ejemplo del día (con las mismas pizzas de la carta)
     // El de María tiene fecha fuera de la promoción, para comparar
-    val pedidosDelDia = arrayOf(
+    // Es una lista mutable para poder agregar después el pedido real del usuario
+    val pedidosDelDia = mutableListOf<Pedido>(
         Pedido(Cliente("María Soto", "987654321", "maria.soto@correo.cl", "Los Aromos 123"), listOf(Carta.pepperoni, Carta.pepperoni), fecha = LocalDate.of(2026, 10, 15)),
         Pedido(Cliente("Juan Pérez", "976543210", "juan.perez@correo.cl", "Av. Matta 456"), listOf(Carta.napolitana)),
         Pedido(Cliente("Carla Rojas", "965432109", "carla.rojas@correo.cl", "Pasaje Sur 789"), listOf(Carta.hawaiana, Carta.hawaiana, Carta.hawaiana)),
@@ -779,6 +780,11 @@ fun main() {
     // Demostración: un salto no permitido no cambia el estado y muestra un aviso
     println("\nIntentando pasar el pedido de ${pedidosDelDia[0].cliente.nombre} directo a \"En camino\"...")
     pedidosDelDia[0].cambiarEstado("En camino")
+
+    // El pedido real se suma al día solo si se confirmó (uno rechazado no se va a preparar)
+    if (pedidoConfirmado) {
+        pedidosDelDia.add(pedidoCliente)
+    }
 
     // ---------- Desestructuración de pedidos ----------
     // Va aquí porque necesita que pedidosDelDia ya exista
@@ -808,7 +814,8 @@ fun main() {
     // Clientes: el del usuario, los del día y un duplicado de María que debe rechazarse
     val registroClientes = mutableSetOf<Cliente>()
     registrarCliente(registroClientes, cliente)
-    for (pedido in pedidosDelDia) {
+    // Se omite el cliente real (mismo objeto), porque ya se registró arriba
+    for (pedido in pedidosDelDia.filter { it.cliente !== cliente }) {
         registrarCliente(registroClientes, pedido.cliente)
     }
     val mariaDuplicada = Cliente("María Soto", "912345678", "maria.soto@correo.cl", "Otra Calle 999")
