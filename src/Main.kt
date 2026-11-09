@@ -1,9 +1,21 @@
 // Mi primera app en Kotlin - Sistema de pedidos de una pizzería
 
+import java.time.LocalDate
 import java.util.Locale
 
 // Cantidad de pizzas permitida por pedido (mínimo y máximo)
 val RANGO_CANTIDAD = 1..100
+
+// Período de promoción (desde y hasta, ambos incluidos)
+val RANGO_PROMOCION = LocalDate.of(2026, 11, 1)..LocalDate.of(2026, 11, 30)
+
+// Descuento extra durante la promoción: 10%
+const val DESCUENTO_PROMOCION = 0.10
+
+// Indica si una fecha cae dentro del período de promoción
+fun estaEnPromocion(fecha: LocalDate): Boolean {
+    return fecha in RANGO_PROMOCION
+}
 
 // Clase base para cualquier persona del sistema
 open class Usuario(val nombre: String, val contacto: String) {
@@ -53,7 +65,8 @@ class Producto(val nombre: String, val precio: Double, val ingredientes: Map<Str
 
 // Un pedido de un cliente con los productos que pidió
 // Las notas son opcionales: si no se indican quedan en null
-class Pedido(val cliente: Cliente, val productos: List<Producto>, val notas: String? = null) {
+// La fecha, si no se indica, es la de hoy
+class Pedido(val cliente: Cliente, val productos: List<Producto>, val notas: String? = null, val fecha: LocalDate = LocalDate.now()) {
 
     // Solo se cambia con cambiarEstado() para que siempre sea un estado válido
     var estado: String = "En preparación"
@@ -64,9 +77,11 @@ class Pedido(val cliente: Cliente, val productos: List<Producto>, val notas: Str
         return productos.sumOf { it.precio }
     }
 
-    // Descuento del pedido, usando la función existente
+    // Descuento del pedido: el de cantidad (función existente) más el de promoción si corresponde
     fun calcularDescuento(): Double {
-        return calcularDescuento(calcularSubtotal(), productos.size)
+        val descuentoCantidad = calcularDescuento(calcularSubtotal(), productos.size)
+        val descuentoPromocion = if (estaEnPromocion(fecha)) calcularSubtotal() * DESCUENTO_PROMOCION else 0.0
+        return descuentoCantidad + descuentoPromocion
     }
 
     // IVA sobre el monto ya descontado, usando la función existente
@@ -191,6 +206,15 @@ fun generarResumen(idPedido: Int, pedido: Pedido, estado: String, repartidor: St
         resumen.appendLine("  (Pedido rechazado: este monto NO se cobrará)")
     }
     resumen.appendLine(lineaSimple)
+
+    // Fecha y promoción del pedido
+    val textoPromocion = if (estaEnPromocion(pedido.fecha)) {
+        "Aplicada (${(DESCUENTO_PROMOCION * 100).toInt()}% de descuento)"
+    } else {
+        "No aplica"
+    }
+    resumen.appendLine("  Fecha:      ${pedido.fecha}")
+    resumen.appendLine("  Promoción:  $textoPromocion")
 
     // Estado, repartidor y notas
     resumen.appendLine("  Estado:     $estado")
@@ -481,8 +505,9 @@ fun main() {
     // ---------- 6. Reporte de pedidos del día ----------
 
     // Pedidos de ejemplo del día (con las mismas pizzas de la carta)
+    // El de María tiene fecha fuera de la promoción, para comparar
     val pedidosDelDia = arrayOf(
-        Pedido(Cliente("María Soto", "987654321", "maria.soto@correo.cl", "Los Aromos 123"), listOf(productoPepperoni, productoPepperoni)),
+        Pedido(Cliente("María Soto", "987654321", "maria.soto@correo.cl", "Los Aromos 123"), listOf(productoPepperoni, productoPepperoni), fecha = LocalDate.of(2026, 10, 15)),
         Pedido(Cliente("Juan Pérez", "976543210", "juan.perez@correo.cl", "Av. Matta 456"), listOf(productoNapolitana)),
         Pedido(Cliente("Carla Rojas", "965432109", "carla.rojas@correo.cl", "Pasaje Sur 789"), listOf(productoHawaiana, productoHawaiana, productoHawaiana)),
         Pedido(Cliente("Diego Muñoz", "954321098", "diego.munoz@correo.cl", "Calle Norte 321"), listOf(productoVegetariana, productoPepperoni)),
