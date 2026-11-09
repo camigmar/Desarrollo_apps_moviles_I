@@ -563,6 +563,92 @@ fun asignarRepartidor(repartidores: List<Repartidor>): Repartidor? {
     return repartidorCercano
 }
 
+// Hace todo el flujo de UN pedido: elegir, verificar stock, asignar repartidor y mostrar el resumen
+// Devuelve el pedido si se confirmó, o null si se rechazó por falta de ingredientes
+fun realizarPedido(
+    idPedido: Int,
+    cliente: Cliente,
+    carta: List<Producto>,
+    inventario: MutableMap<String, Int>,
+    repartidores: List<Repartidor>
+): Pedido? {
+    // Elegir la pizza, la cantidad y las notas del pedido
+    val pizzaElegida = elegirPizza(carta)
+    val cantidadPizzas = leerCantidadPizzas(pizzaElegida)
+    val notasPedido = leerNotas()
+
+    // El pedido lleva la pizza repetida tantas veces como pidió el cliente
+    // Los montos (subtotal, descuento, impuesto y total) los calcula el propio pedido
+    val pedido = Pedido(cliente, List(cantidadPizzas) { pizzaElegida }, notasPedido)
+
+    // Revisa los ingredientes; si alcanzan, se descuentan del inventario
+    val pedidoConfirmado: Boolean = verificarStock(pedido, inventario)
+
+    val estadoPedido = if (pedidoConfirmado) {
+        pedido.estado
+    } else {
+        "Rechazado por falta de ingredientes"
+    }
+
+    // Se asigna repartidor solo si el pedido se confirmó
+    var repartidorAsignado: Repartidor? = null
+    val textoRepartidor: String // lo que se muestra en el resumen
+    if (pedidoConfirmado) {
+        // El más cercano que esté disponible
+        repartidorAsignado = asignarRepartidor(repartidores)
+        textoRepartidor = repartidorAsignado?.nombre ?: "Sin repartidores disponibles"
+    } else {
+        textoRepartidor = "No asignado (pedido rechazado)"
+    }
+
+    // Resumen del pedido
+    println()
+    println(generarResumen(idPedido, pedido, estadoPedido, textoRepartidor))
+
+    // Notificación solo a clientes registrados (con correo válido) y si el pedido se confirmó
+    if (pedidoConfirmado) {
+        cliente.correo.takeIf { it != "correo@invalido.com" }?.let {
+            println("\nNotificación enviada a $it: su pedido está en preparación.")
+        } ?: run {
+            println("\nNo se envió notificación: cliente sin correo válido.")
+        }
+    }
+
+    // Polimorfismo: cada usuario se presenta a su manera
+    val usuariosDelPedido = if (repartidorAsignado != null) {
+        listOf<Usuario>(cliente, repartidorAsignado)
+    } else {
+        listOf<Usuario>(cliente)
+    }
+
+    println("\n--- Personas del pedido ---")
+    for (usuario in usuariosDelPedido) {
+        println(usuario.presentarse())
+    }
+
+    // Entrega solo si el pedido se confirmó y hay repartidor
+    if (pedidoConfirmado && repartidorAsignado != null) {
+        println(repartidorAsignado.entregarPedido(pedido))
+    }
+
+    return if (pedidoConfirmado) pedido else null
+}
+
+// Pregunta si se quiere hacer otro pedido hasta recibir "s" o "n" (sin importar mayúsculas)
+// Si ya no hay entrada (fin de archivo) devuelve false para no quedar en un ciclo infinito
+fun preguntarOtroPedido(): Boolean {
+    while (true) {
+        println("\n¿Desea hacer otro pedido? (s/n)")
+        val respuesta = readLine() ?: return false
+
+        when (respuesta.trim().lowercase()) {
+            "s" -> return true
+            "n" -> return false
+            else -> println("Error: responda \"s\" para sí o \"n\" para no.")
+        }
+    }
+}
+
 fun main() {
     println("===== PIZZERÍA KOTLIN =====")
 
@@ -590,10 +676,6 @@ fun main() {
     // Carta que se muestra al cliente para elegir (pizzas del object Carta)
     val carta = listOf(Carta.pepperoni, Carta.napolitana, Carta.hawaiana, Carta.vegetariana, Carta.margarita)
 
-    // Datos del pedido
-    val idPedido: Int = 1001
-    var estadoPedido: String = ""
-
     // Repartidores con su distancia al local
     val repartidores = listOf(
         Repartidor("Ana", "911111111", 3.5, true),
@@ -601,8 +683,6 @@ fun main() {
         Repartidor("Luis", "933333333", 2.0, true),
         Repartidor("Sofía", "944444444", 4.8, true)
     )
-    var repartidorAsignado: Repartidor? = null
-    var textoRepartidor: String = "Sin asignar" // lo que se muestra en el resumen
 
     // ---------- 2. Entrada / salida ----------
 
@@ -675,72 +755,19 @@ fun main() {
     // Cliente real con los datos ya validados
     val cliente = Cliente(nombre, telefono, correo, direccion)
 
-    // Elegir la pizza, la cantidad y las notas del pedido
-    val pizzaElegida = elegirPizza(carta)
-    val cantidadPizzas = leerCantidadPizzas(pizzaElegida)
-    val notasPedido = leerNotas()
+    // ---------- 3. Pedidos del usuario ----------
 
-    // ---------- 3. Cálculo del total ----------
-
-    // El pedido lleva la pizza repetida tantas veces como pidió el cliente
-    // Los montos (subtotal, descuento, impuesto y total) los calcula el propio pedido
-    val pedidoCliente = Pedido(cliente, List(cantidadPizzas) { pizzaElegida }, notasPedido)
-
-    // ---------- 4. Verificación de stock y repartidor ----------
-
-    // Revisa los ingredientes; si alcanzan, se descuentan del inventario
-    val pedidoConfirmado: Boolean = verificarStock(pedidoCliente, inventario)
-
-    estadoPedido = if (pedidoConfirmado) {
-        pedidoCliente.estado
-    } else {
-        "Rechazado por falta de ingredientes"
-    }
-
-    // Se asigna repartidor solo si el pedido se confirmó
-    if (pedidoConfirmado) {
-        // El más cercano que esté disponible
-        val repartidorCercano = asignarRepartidor(repartidores)
-        if (repartidorCercano != null) {
-            repartidorAsignado = repartidorCercano
-            textoRepartidor = repartidorCercano.nombre
-        } else {
-            textoRepartidor = "Sin repartidores disponibles"
+    // Se repite mientras el usuario quiera hacer otro pedido
+    // El inventario es el mismo para todos, así que se va descontando
+    val pedidosReales = mutableListOf<Pedido>() // solo los confirmados
+    var idPedido = 1001
+    do {
+        val pedidoReal = realizarPedido(idPedido, cliente, carta, inventario, repartidores)
+        if (pedidoReal != null) {
+            pedidosReales.add(pedidoReal)
         }
-    } else {
-        textoRepartidor = "No asignado (pedido rechazado)"
-    }
-
-    // ---------- 5. Resumen final ----------
-
-    println()
-    println(generarResumen(idPedido, pedidoCliente, estadoPedido, textoRepartidor))
-
-    // Notificación solo a clientes registrados (con correo válido) y si el pedido se confirmó
-    if (pedidoConfirmado) {
-        cliente.correo.takeIf { it != "correo@invalido.com" }?.let {
-            println("\nNotificación enviada a $it: su pedido está en preparación.")
-        } ?: run {
-            println("\nNo se envió notificación: cliente sin correo válido.")
-        }
-    }
-
-    // Polimorfismo: cada usuario se presenta a su manera
-    val usuariosDelPedido = if (repartidorAsignado != null) {
-        listOf<Usuario>(cliente, repartidorAsignado)
-    } else {
-        listOf<Usuario>(cliente)
-    }
-
-    println("\n--- Personas del pedido ---")
-    for (usuario in usuariosDelPedido) {
-        println(usuario.presentarse())
-    }
-
-    // Entrega solo si el pedido se confirmó y hay repartidor
-    if (pedidoConfirmado && repartidorAsignado != null) {
-        println(repartidorAsignado.entregarPedido(pedidoCliente))
-    }
+        idPedido++
+    } while (preguntarOtroPedido())
 
     // ---------- Desestructuración del cliente ----------
 
@@ -828,24 +855,27 @@ fun main() {
     println("\nIntentando pasar el pedido de ${pedidosDelDia[0].cliente.nombre} directo a \"En camino\"...")
     pedidosDelDia[0].cambiarEstado("En camino")
 
-    // El pedido real se suma al día solo si se confirmó (uno rechazado no se va a preparar)
-    if (pedidoConfirmado) {
-        pedidosDelDia.add(pedidoCliente)
-    }
+    // Se suman al día los pedidos reales confirmados (los rechazados no se van a preparar)
+    pedidosDelDia.addAll(pedidosReales)
 
     // ---------- Desestructuración de pedidos ----------
     // Va aquí porque necesita que pedidosDelDia ya exista
 
     println("\n========== DESESTRUCTURACIÓN DE PEDIDO ==========")
-    // Pedido real del usuario separado en cliente, productos y total
-    val (clientePedido, productosPedido, totalPedido) = pedidoCliente
-    println("Cliente:   ${clientePedido.nombre}")
-    println("Productos: ${productosPedido.size}")
-    println("Total:     ${formatearMonto(totalPedido)}")
+    // Último pedido real confirmado separado en cliente, productos y total
+    val ultimoPedidoReal = pedidosReales.lastOrNull()
+    if (ultimoPedidoReal == null) {
+        println("No hay pedidos reales confirmados")
+    } else {
+        val (clientePedido, productosPedido, totalPedido) = ultimoPedidoReal
+        println("Cliente:   ${clientePedido.nombre}")
+        println("Productos: ${productosPedido.size}")
+        println("Total:     ${formatearMonto(totalPedido)}")
 
-    // Desestructuración anidada: del cliente solo se usa el nombre (_ ignora el resto)
-    val (nombreDelCliente, _, _) = clientePedido
-    println("Nombre obtenido del cliente del pedido: $nombreDelCliente")
+        // Desestructuración anidada: del cliente solo se usa el nombre (_ ignora el resto)
+        val (nombreDelCliente, _, _) = clientePedido
+        println("Nombre obtenido del cliente del pedido: $nombreDelCliente")
+    }
 
     // Recorrer los pedidos del día separando cada uno en sus partes
     println("-".repeat(49))
