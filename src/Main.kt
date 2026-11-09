@@ -547,7 +547,7 @@ fun leerCantidadPizzas(pizza: Producto): Int {
     // Se repite la pregunta hasta que la cantidad sea válida
     var cantidadValida = false
     while (!cantidadValida) {
-        println("\n¿Cuántas pizzas ${pizza.nombre} desea? (entre ${RANGO_CANTIDAD.first} y ${RANGO_CANTIDAD.last}, precio unitario: $${pizza.precio})")
+        println("\n¿Cuántas pizzas ${pizza.nombre} desea? (entre ${RANGO_CANTIDAD.first} y ${RANGO_CANTIDAD.last}, precio unitario: ${formatearMonto(pizza.precio)})")
         val entradaCantidad = readLine()
 
         // Si ya no hay entrada (fin de archivo) se evita un ciclo infinito
@@ -999,7 +999,7 @@ fun main() {
     // Reporte: una línea por pedido
     println("\n========== REPORTE DE PEDIDOS DEL DÍA ==========")
     for (pedido in pedidosDelDia) {
-        println("Cliente: ${pedido.cliente.nombre} | Pizzas: ${pedido.resumirProductos()} | Total: $${pedido.calcularTotal()} | Estado: ${pedido.estado}")
+        println("Cliente: ${pedido.cliente.nombre} | Pizzas: ${pedido.resumirProductos()} | Total: ${formatearMonto(pedido.calcularTotal())} | Estado: ${pedido.estado}")
     }
 
     // Separar pedidos completados y pendientes
