@@ -2,6 +2,9 @@
 
 import java.util.Locale
 
+// Cantidad de pizzas permitida por pedido (mínimo y máximo)
+val RANGO_CANTIDAD = 1..100
+
 // Clase base para cualquier persona del sistema
 open class Usuario(val nombre: String, val contacto: String) {
 
@@ -314,7 +317,7 @@ fun main() {
     // Leer cantidad de pizzas: se repite la pregunta hasta que sea válida
     var cantidadValida = false
     while (!cantidadValida) {
-        println("\n¿Cuántas pizzas ${productoPepperoni.nombre} desea? (precio unitario: $${productoPepperoni.precio})")
+        println("\n¿Cuántas pizzas ${productoPepperoni.nombre} desea? (entre ${RANGO_CANTIDAD.first} y ${RANGO_CANTIDAD.last}, precio unitario: $${productoPepperoni.precio})")
         val entradaCantidad = readLine()
 
         // Si ya no hay entrada (fin de archivo) se evita un ciclo infinito
@@ -326,7 +329,10 @@ fun main() {
 
         try {
             val cantidadLeida = entradaCantidad.trim().toInt()
-            require(cantidadLeida >= 1) { "Error: la cantidad debe ser al menos 1." }
+            // La cantidad debe estar dentro del rango permitido
+            require(cantidadLeida in RANGO_CANTIDAD) {
+                "Error: la cantidad debe estar entre ${RANGO_CANTIDAD.first} y ${RANGO_CANTIDAD.last}."
+            }
             cantidadPizzas = cantidadLeida
             cantidadValida = true
         } catch (e: NumberFormatException) {
