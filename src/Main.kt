@@ -131,6 +131,20 @@ fun formatearMonto(monto: Double): String {
     return String.format(Locale.forLanguageTag("es-CL"), "$%,.0f", monto)
 }
 
+// Teléfono con formato "+XX (XXX) XXX-XXXX"; devuelve null si no tiene 12 dígitos
+fun formatearTelefono(telefono: String): String? {
+    // Se quita todo lo que no sea dígito (espacios, +, paréntesis, guiones)
+    val soloDigitos = telefono.replace(Regex("\\D"), "")
+
+    // 12 dígitos separados en grupos: país (2), 3, 3 y 4
+    val regexTelefono = Regex("^(\\d{2})(\\d{3})(\\d{3})(\\d{4})$")
+    val resultado = regexTelefono.matchEntire(soloDigitos) ?: return null
+
+    // Se arma el formato con los grupos capturados
+    val (pais, parte1, parte2, parte3) = resultado.destructured
+    return "+$pais ($parte1) $parte2-$parte3"
+}
+
 // Resumen completo del pedido listo para imprimir
 fun generarResumen(idPedido: Int, pedido: Pedido, estado: String, repartidor: String): String {
     val lineaDoble = "=".repeat(50)
@@ -246,21 +260,27 @@ fun main() {
         direccion = entradaDireccion.trim()
     }
 
-    // Leer teléfono
-    println("Ingrese su teléfono (solo dígitos, entre 8 y 12):")
-    val entradaTelefono = readLine()
-    var textoTelefono: String = ""
-    if (entradaTelefono != null) {
-        textoTelefono = entradaTelefono.trim()
-    }
+    // Leer teléfono: se repite la pregunta hasta que sea válido
+    var telefonoValido = false
+    while (!telefonoValido) {
+        println("Ingrese su teléfono (12 dígitos con código de país, ej: +56 912 345 6789):")
+        val entradaTelefono = readLine()
 
-    // El teléfono es válido si tiene solo dígitos, entre 8 y 12
-    val regexTelefono = Regex("^\\d{8,12}$")
-    if (regexTelefono.matches(textoTelefono)) {
-        telefono = textoTelefono
-    } else {
-        println("Aviso: teléfono inválido, se asigna valor por defecto.")
-        telefono = "(000) 000-0000"
+        // Si ya no hay entrada (fin de archivo) se evita un ciclo infinito
+        if (entradaTelefono == null) {
+            println("No se recibió el teléfono, se asigna valor por defecto.")
+            telefono = "(000) 000-0000"
+            break
+        }
+
+        // Se guarda el teléfono ya formateado
+        val telefonoFormateado = formatearTelefono(entradaTelefono)
+        if (telefonoFormateado != null) {
+            telefono = telefonoFormateado
+            telefonoValido = true
+        } else {
+            println("Error: teléfono inválido, debe tener 12 dígitos, por ejemplo +56 (912) 345-6789")
+        }
     }
 
     // El correo es válido si tiene la forma usuario@dominio.ext
