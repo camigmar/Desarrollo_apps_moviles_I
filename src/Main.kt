@@ -134,18 +134,18 @@ fun formatearMonto(monto: Double): String {
     return String.format(Locale.forLanguageTag("es-CL"), "$%,.0f", monto)
 }
 
-// Teléfono con formato "+XX (XXX) XXX-XXXX"; devuelve null si no tiene 12 dígitos
+// Formatea celulares chilenos como "+56 (9) XXXX-XXXX"; devuelve null si no es válido
 fun formatearTelefono(telefono: String): String? {
     // Se quita todo lo que no sea dígito (espacios, +, paréntesis, guiones)
     val soloDigitos = telefono.replace(Regex("\\D"), "")
 
-    // 12 dígitos separados en grupos: país (2), 3, 3 y 4
-    val regexTelefono = Regex("^(\\d{2})(\\d{3})(\\d{3})(\\d{4})$")
+    // 56 opcional, luego el 9 y dos grupos de 4 dígitos
+    val regexTelefono = Regex("^(?:56)?(9)(\\d{4})(\\d{4})$")
     val resultado = regexTelefono.matchEntire(soloDigitos) ?: return null
 
-    // Se arma el formato con los grupos capturados
-    val (pais, parte1, parte2, parte3) = resultado.destructured
-    return "+$pais ($parte1) $parte2-$parte3"
+    // Se arma el formato con los grupos capturados (siempre con +56)
+    val (nueve, parte1, parte2) = resultado.destructured
+    return "+56 ($nueve) $parte1-$parte2"
 }
 
 // Resumen completo del pedido listo para imprimir
@@ -266,13 +266,13 @@ fun main() {
     // Leer teléfono: se repite la pregunta hasta que sea válido
     var telefonoValido = false
     while (!telefonoValido) {
-        println("Ingrese su teléfono (12 dígitos con código de país, ej: +56 912 345 6789):")
+        println("Ingrese su celular (ej: +56 9 6580 1007):")
         val entradaTelefono = readLine()
 
         // Si ya no hay entrada (fin de archivo) se evita un ciclo infinito
         if (entradaTelefono == null) {
             println("No se recibió el teléfono, se asigna valor por defecto.")
-            telefono = "(000) 000-0000"
+            telefono = "+56 (9) 0000-0000"
             break
         }
 
@@ -282,7 +282,7 @@ fun main() {
             telefono = telefonoFormateado
             telefonoValido = true
         } else {
-            println("Error: teléfono inválido, debe tener 12 dígitos, por ejemplo +56 (912) 345-6789")
+            println("Error: teléfono inválido, debe ser un celular chileno, por ejemplo +56 9 6580 1007")
         }
     }
 
