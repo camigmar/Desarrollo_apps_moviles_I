@@ -37,6 +37,17 @@ class Cliente(nombre: String, telefono: String, val correo: String, val direccio
     override fun presentarse(): String {
         return "Soy el cliente $nombre | Teléfono: $contacto | Correo: $correo | Dirección: $direccion"
     }
+
+    // Desestructuración: val (nombre, correo, telefono) = cliente
+
+    // Primer valor: el nombre
+    operator fun component1(): String = nombre
+
+    // Segundo valor: el correo
+    operator fun component2(): String = correo
+
+    // Tercer valor: el teléfono (se guarda en contacto)
+    operator fun component3(): String = contacto
 }
 
 // Repartidor: tiene distancia al local y si está disponible
@@ -635,6 +646,16 @@ fun main() {
     if (pedidoConfirmado && repartidorAsignado != null) {
         println(repartidorAsignado.entregarPedido(pedidoCliente))
     }
+
+    // ---------- Desestructuración del cliente ----------
+
+    println("\n========== DESESTRUCTURACIÓN DE CLIENTE ==========")
+    // Se separan los datos del cliente en tres variables de una vez
+    val (nombreCliente, correoCliente, telefonoCliente) = cliente
+    println("Nombre:   $nombreCliente")
+    println("Correo:   $correoCliente")
+    println("Teléfono: $telefonoCliente")
+    println("=".repeat(50))
 
     // ---------- Análisis de clases con reflection ----------
 
