@@ -2,6 +2,9 @@
 
 import java.time.LocalDate
 import java.util.Locale
+import kotlin.reflect.KClass
+import kotlin.reflect.full.declaredFunctions
+import kotlin.reflect.full.declaredMemberProperties
 import kotlin.reflect.full.findAnnotation
 import kotlin.reflect.full.hasAnnotation
 import kotlin.reflect.full.memberProperties
@@ -94,6 +97,33 @@ fun productosPromocionables(): List<Producto> {
     return Carta::class.memberProperties
         .filter { it.hasAnnotation<Promocionable>() }
         .mapNotNull { it.getter.call(Carta) as? Producto }
+}
+
+// Describe una clase con reflection: nombre, propiedades y funciones declaradas en ella
+fun describirClase(clase: KClass<*>): String {
+    val descripcion = StringBuilder()
+    descripcion.appendLine("Clase: ${clase.simpleName}")
+
+    // Propiedades como "nombre: Tipo", ordenadas por nombre
+    // Se quita el paquete del tipo (ej: kotlin.String -> String) para que sea más fácil de leer
+    descripcion.appendLine("  Propiedades:")
+    for (propiedad in clase.declaredMemberProperties.sortedBy { it.name }) {
+        val tipo = propiedad.returnType.toString().replace(Regex("\\b[a-z]\\w*\\."), "")
+        descripcion.appendLine("    - ${propiedad.name}: $tipo")
+    }
+
+    // Funciones solo con su nombre, ordenadas por nombre
+    descripcion.appendLine("  Funciones:")
+    val funciones = clase.declaredFunctions.sortedBy { it.name }
+    if (funciones.isEmpty()) {
+        descripcion.appendLine("    (ninguna)")
+    } else {
+        for (funcion in funciones) {
+            descripcion.appendLine("    - ${funcion.name}()")
+        }
+    }
+
+    return descripcion.toString().trimEnd()
 }
 
 // Un pedido de un cliente con los productos que pidió
@@ -540,6 +570,15 @@ fun main() {
     // Entrega solo si el pedido se confirmó y hay repartidor
     if (pedidoConfirmado && repartidorAsignado != null) {
         println(repartidorAsignado.entregarPedido(pedidoCliente))
+    }
+
+    // ---------- Análisis de clases con reflection ----------
+
+    println("\n========== ANÁLISIS DE CLASES (reflection) ==========")
+    val clasesAnalizadas = listOf(Cliente::class, Producto::class, Pedido::class)
+    for (clase in clasesAnalizadas) {
+        println(describirClase(clase))
+        println("-".repeat(50))
     }
 
     // ---------- 6. Reporte de pedidos del día ----------
