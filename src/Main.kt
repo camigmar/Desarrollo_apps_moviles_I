@@ -351,6 +351,82 @@ fun registrarProducto(registro: MutableSet<Producto>, producto: Producto): Boole
     return agregado
 }
 
+// Resumen final de la jornada con datos reales: pedidos combinados, desestructuración,
+// productos promocionables e igualdad de objetos
+// Si el cliente tiene menos de 2 pedidos confirmados, se usa como ejemplo la suma de los dos pedidos de ejemplo
+fun generarResumenFinal(
+    cliente: Cliente,
+    pedidosReales: List<Pedido>,
+    pedidoEjemplo1: Pedido,
+    pedidoEjemplo2: Pedido,
+    registroClientes: Set<Cliente>,
+    registroProductos: Set<Producto>
+): String {
+    val lineaDoble = "=".repeat(60)
+    val lineaSimple = "-".repeat(60)
+    val resumen = StringBuilder()
+
+    // Encabezado con la fecha de hoy
+    resumen.appendLine(lineaDoble)
+    resumen.appendLine("          RESUMEN FINAL DE LA JORNADA (${LocalDate.now()})")
+    resumen.appendLine(lineaDoble)
+
+    // 1) Pedidos combinados con el operador +
+    resumen.appendLine("1) PEDIDOS COMBINADOS (operador +)")
+    // Con 2 o más pedidos reales se combinan todos; si no, se usa el ejemplo
+    val pedidosACombinar = if (pedidosReales.size >= 2) pedidosReales else listOf(pedidoEjemplo1, pedidoEjemplo2)
+    if (pedidosReales.size < 2) {
+        resumen.appendLine("  (Ejemplo: el cliente tiene menos de 2 pedidos confirmados)")
+    }
+    for ((indice, pedido) in pedidosACombinar.withIndex()) {
+        resumen.appendLine("  Pedido ${indice + 1} (${pedido.cliente.nombre}): ${pedido.resumirProductos()} | Total: ${formatearMonto(pedido.calcularTotal())}")
+    }
+    val combinado = pedidosACombinar.reduce { a, b -> a + b }
+    resumen.appendLine("  Combinado: ${combinado.resumirProductos()}")
+    resumen.appendLine("  Descuento: ${formatearMonto(combinado.calcularDescuento())} | Total: ${formatearMonto(combinado.calcularTotal())}")
+    resumen.appendLine(lineaSimple)
+
+    // 2) Cliente separado en sus partes
+    resumen.appendLine("2) CLIENTE DESESTRUCTURADO")
+    val (nombre, correo, telefono) = cliente
+    resumen.appendLine("  Nombre:   $nombre")
+    resumen.appendLine("  Correo:   $correo")
+    resumen.appendLine("  Teléfono: $telefono")
+    resumen.appendLine(lineaSimple)
+
+    // 3) Productos marcados con @Promocionable (motivo leído con reflection)
+    resumen.appendLine("3) PRODUCTOS PROMOCIONABLES (anotación @Promocionable)")
+    for (fuente in listOf(Carta, Bebidas)) {
+        resumen.appendLine("  ${fuente::class.simpleName}:")
+        for (propiedad in fuente::class.memberProperties) {
+            val promocion = propiedad.findAnnotation<Promocionable>() ?: continue
+            val producto = propiedad.getter.call(fuente) as? Producto ?: continue
+            resumen.appendLine("    - ${producto.nombre.padEnd(14)} ${formatearMonto(producto.precio).padStart(7)} | ${promocion.motivo}")
+        }
+    }
+    resumen.appendLine(lineaSimple)
+
+    // 4) Igualdad de objetos: todos los resultados se calculan aquí
+    resumen.appendLine("4) IGUALDAD DE OBJETOS")
+    val copiaCliente = Cliente(cliente.nombre, cliente.contacto, cliente.correo, "Otra dirección 123")
+    resumen.appendLine("  Cliente == copia con otra dirección:      ${cliente == copiaCliente}")
+
+    // Si María ya está en el registro, un duplicado suyo sería rechazado
+    val mariaDuplicada = Cliente("María Soto", "912345678", "maria.soto@correo.cl", "Otra Calle 999")
+    val textoMaria = if (mariaDuplicada in registroClientes) "rechazada" else "aceptada"
+    resumen.appendLine("  María duplicada en el registro:           $textoMaria")
+
+    val pepperoniOtroPrecio = Producto("Pepperoni", 9990.0, mapOf("masa" to 1), Categoria.PIZZA)
+    val pepperoniBebida = Producto("Pepperoni", 8990.0, emptyMap(), Categoria.BEBIDA)
+    resumen.appendLine("  Pepperoni == Pepperoni con otro precio:   ${Carta.pepperoni == pepperoniOtroPrecio}")
+    resumen.appendLine("  Pepperoni (PIZZA) == Pepperoni (BEBIDA):  ${Carta.pepperoni == pepperoniBebida}")
+    resumen.appendLine("  Clientes distintos registrados:           ${registroClientes.size}")
+    resumen.appendLine("  Productos distintos registrados:          ${registroProductos.size}")
+    resumen.append(lineaDoble)
+
+    return resumen.toString()
+}
+
 // Resumen completo del pedido listo para imprimir
 fun generarResumen(idPedido: Int, pedido: Pedido, estado: String, repartidor: String): String {
     val lineaDoble = "=".repeat(50)
@@ -979,4 +1055,10 @@ fun main() {
         println("Validación de inventario terminada.")
     }
     println("=============================================")
+
+    // ---------- 8. Resumen final de la jornada ----------
+
+    // Es lo último que se imprime
+    println()
+    println(generarResumenFinal(cliente, pedidosReales, pedidoMaria1, pedidoMaria2, registroClientes, registroProductos))
 }
