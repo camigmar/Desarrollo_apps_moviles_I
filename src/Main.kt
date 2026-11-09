@@ -415,6 +415,154 @@ fun generarResumen(idPedido: Int, pedido: Pedido, estado: String, repartidor: St
     return resumen.toString()
 }
 
+// Muestra la carta numerada y pide una opción hasta que sea válida
+// También indica si la pizza elegida es promocionable (leyendo su anotación con reflection)
+fun elegirPizza(carta: List<Producto>): Producto {
+    var pizzaElegida: Producto = carta[0]
+
+    // Mostrar la carta numerada
+    println("\n--- CARTA ---")
+    for ((indice, pizza) in carta.withIndex()) {
+        println("${indice + 1}. ${pizza.nombre} - ${formatearMonto(pizza.precio)}")
+    }
+
+    // Leer la pizza elegida: se repite la pregunta hasta que la opción sea válida
+    var opcionValida = false
+    while (!opcionValida) {
+        println("Elija una pizza (1 a ${carta.size}):")
+        val entradaOpcion = readLine()
+
+        // Si ya no hay entrada (fin de archivo) se elige la primera pizza
+        if (entradaOpcion == null) {
+            println("No se recibió la opción, se elige ${carta[0].nombre}.")
+            pizzaElegida = carta[0]
+            break
+        }
+
+        // La opción debe ser un número dentro del rango de la carta
+        val opcion = entradaOpcion.trim().toIntOrNull()
+        if (opcion == null) {
+            println("Error: debe ingresar un número, por ejemplo 1.")
+        } else if (opcion !in 1..carta.size) {
+            println("Error: la opción debe estar entre 1 y ${carta.size}.")
+        } else {
+            pizzaElegida = carta[opcion - 1]
+            opcionValida = true
+        }
+    }
+
+    // Buscar en Carta la propiedad de la pizza elegida y leer su anotación (reflection)
+    val promocion = Carta::class.memberProperties
+        .find { it.getter.call(Carta) == pizzaElegida }
+        ?.findAnnotation<Promocionable>()
+    if (promocion != null) {
+        println("La pizza ${pizzaElegida.nombre} es promocionable: ${promocion.motivo}")
+    } else {
+        println("La pizza ${pizzaElegida.nombre} no es promocionable.")
+    }
+
+    return pizzaElegida
+}
+
+// Pide la cantidad de pizzas hasta que sea un número dentro de RANGO_CANTIDAD
+fun leerCantidadPizzas(pizza: Producto): Int {
+    var cantidadPizzas = 1
+
+    // Se repite la pregunta hasta que la cantidad sea válida
+    var cantidadValida = false
+    while (!cantidadValida) {
+        println("\n¿Cuántas pizzas ${pizza.nombre} desea? (entre ${RANGO_CANTIDAD.first} y ${RANGO_CANTIDAD.last}, precio unitario: $${pizza.precio})")
+        val entradaCantidad = readLine()
+
+        // Si ya no hay entrada (fin de archivo) se evita un ciclo infinito
+        if (entradaCantidad == null) {
+            println("No se recibió la cantidad, se asigna 1 pizza.")
+            cantidadPizzas = 1
+            break
+        }
+
+        try {
+            val cantidadLeida = entradaCantidad.trim().toInt()
+            // La cantidad debe estar dentro del rango permitido
+            require(cantidadLeida in RANGO_CANTIDAD) {
+                "Error: la cantidad debe estar entre ${RANGO_CANTIDAD.first} y ${RANGO_CANTIDAD.last}."
+            }
+            cantidadPizzas = cantidadLeida
+            cantidadValida = true
+        } catch (e: NumberFormatException) {
+            // Va primero porque NumberFormatException es un tipo de IllegalArgumentException
+            println("Error: debe ingresar un número entero, por ejemplo 2.")
+        } catch (e: IllegalArgumentException) {
+            println(e.message)
+        }
+    }
+
+    return cantidadPizzas
+}
+
+// Pide notas opcionales: línea vacía o sin entrada quedan en null
+fun leerNotas(): String? {
+    println("\n¿Desea agregar notas al pedido? (Enter para omitir)")
+    val notasPedido: String? = readLine()?.trim()?.takeIf { it.isNotEmpty() }
+
+    // Solo se muestra si hay notas
+    notasPedido?.let { println("Nota recibida: $it") }
+
+    return notasPedido
+}
+
+// Revisa si hay ingredientes para todo el pedido
+// Si alcanzan, los descuenta del inventario y devuelve true; si no, muestra lo que falta y devuelve false
+fun verificarStock(pedido: Pedido, inventario: MutableMap<String, Int>): Boolean {
+    // Ingredientes que necesita el pedido completo: se suman los de cada producto distinto
+    val necesarios = mutableMapOf<String, Int>()
+    for ((producto, productosIguales) in pedido.productos.groupBy { it }) {
+        val necesariosProducto = calcularIngredientesNecesarios(producto.ingredientes, productosIguales.size)
+        for ((ingrediente, cantidad) in necesariosProducto) {
+            necesarios[ingrediente] = (necesarios[ingrediente] ?: 0) + cantidad
+        }
+    }
+
+    // Revisar cada ingrediente necesario y guardar los que no alcanzan
+    val ingredientesFaltantes = mutableListOf<String>()
+    for ((ingrediente, necesario) in necesarios) {
+        val disponible = inventario[ingrediente] ?: 0
+        when {
+            necesario <= disponible -> println("OK: $ingrediente (necesario: $necesario, disponible: $disponible)")
+            else -> ingredientesFaltantes.add(ingrediente)
+        }
+    }
+
+    if (ingredientesFaltantes.isEmpty()) {
+        // Descontar del inventario lo que usa el pedido
+        descontarInventario(inventario, necesarios)
+        println("\nPedido confirmado. Inventario restante: $inventario")
+        return true
+    }
+
+    println("\nEl pedido no puede completarse. Faltan los siguientes ingredientes:")
+    for (ingrediente in ingredientesFaltantes) {
+        val necesario = necesarios[ingrediente] ?: 0
+        val disponible = inventario[ingrediente] ?: 0
+        val faltan = necesario - disponible
+        println("- $ingrediente: necesario $necesario, disponible $disponible")
+        println("  Pasos para reabastecer:")
+        println("  1. Contactar al proveedor.")
+        println("  2. Solicitar $faltan unidades de $ingrediente.")
+        println("  3. Actualizar el inventario.")
+    }
+    return false
+}
+
+// Devuelve el repartidor disponible más cercano (o null si no hay ninguno)
+fun asignarRepartidor(repartidores: List<Repartidor>): Repartidor? {
+    val repartidorCercano = repartidores.sortedBy { it.distanciaKm }.find { it.disponible }
+    if (repartidorCercano != null) {
+        println("Repartidor asignado: ${repartidorCercano.nombre} (a ${repartidorCercano.distanciaKm} km)")
+    }
+    return repartidorCercano
+}
+
 fun main() {
     println("===== PIZZERÍA KOTLIN =====")
 
@@ -441,11 +589,9 @@ fun main() {
 
     // Carta que se muestra al cliente para elegir (pizzas del object Carta)
     val carta = listOf(Carta.pepperoni, Carta.napolitana, Carta.hawaiana, Carta.vegetariana, Carta.margarita)
-    var pizzaElegida: Producto = carta[0]
 
     // Datos del pedido
     val idPedido: Int = 1001
-    var cantidadPizzas: Int = 1
     var estadoPedido: String = ""
 
     // Repartidores con su distancia al local
@@ -529,82 +675,10 @@ fun main() {
     // Cliente real con los datos ya validados
     val cliente = Cliente(nombre, telefono, correo, direccion)
 
-    // Mostrar la carta numerada
-    println("\n--- CARTA ---")
-    for ((indice, pizza) in carta.withIndex()) {
-        println("${indice + 1}. ${pizza.nombre} - ${formatearMonto(pizza.precio)}")
-    }
-
-    // Leer la pizza elegida: se repite la pregunta hasta que la opción sea válida
-    var opcionValida = false
-    while (!opcionValida) {
-        println("Elija una pizza (1 a ${carta.size}):")
-        val entradaOpcion = readLine()
-
-        // Si ya no hay entrada (fin de archivo) se elige la primera pizza
-        if (entradaOpcion == null) {
-            println("No se recibió la opción, se elige ${carta[0].nombre}.")
-            pizzaElegida = carta[0]
-            break
-        }
-
-        // La opción debe ser un número dentro del rango de la carta
-        val opcion = entradaOpcion.trim().toIntOrNull()
-        if (opcion == null) {
-            println("Error: debe ingresar un número, por ejemplo 1.")
-        } else if (opcion !in 1..carta.size) {
-            println("Error: la opción debe estar entre 1 y ${carta.size}.")
-        } else {
-            pizzaElegida = carta[opcion - 1]
-            opcionValida = true
-        }
-    }
-
-    // Buscar en Carta la propiedad de la pizza elegida y leer su anotación (reflection)
-    val promocion = Carta::class.memberProperties
-        .find { it.getter.call(Carta) == pizzaElegida }
-        ?.findAnnotation<Promocionable>()
-    if (promocion != null) {
-        println("La pizza ${pizzaElegida.nombre} es promocionable: ${promocion.motivo}")
-    } else {
-        println("La pizza ${pizzaElegida.nombre} no es promocionable.")
-    }
-
-    // Leer cantidad de pizzas: se repite la pregunta hasta que sea válida
-    var cantidadValida = false
-    while (!cantidadValida) {
-        println("\n¿Cuántas pizzas ${pizzaElegida.nombre} desea? (entre ${RANGO_CANTIDAD.first} y ${RANGO_CANTIDAD.last}, precio unitario: $${pizzaElegida.precio})")
-        val entradaCantidad = readLine()
-
-        // Si ya no hay entrada (fin de archivo) se evita un ciclo infinito
-        if (entradaCantidad == null) {
-            println("No se recibió la cantidad, se asigna 1 pizza.")
-            cantidadPizzas = 1
-            break
-        }
-
-        try {
-            val cantidadLeida = entradaCantidad.trim().toInt()
-            // La cantidad debe estar dentro del rango permitido
-            require(cantidadLeida in RANGO_CANTIDAD) {
-                "Error: la cantidad debe estar entre ${RANGO_CANTIDAD.first} y ${RANGO_CANTIDAD.last}."
-            }
-            cantidadPizzas = cantidadLeida
-            cantidadValida = true
-        } catch (e: NumberFormatException) {
-            // Va primero porque NumberFormatException es un tipo de IllegalArgumentException
-            println("Error: debe ingresar un número entero, por ejemplo 2.")
-        } catch (e: IllegalArgumentException) {
-            println(e.message)
-        }
-    }
-
-    // Leer notas opcionales: línea vacía o sin entrada quedan en null
-    println("\n¿Desea agregar notas al pedido? (Enter para omitir)")
-    val notasPedido: String? = readLine()?.trim()?.takeIf { it.isNotEmpty() }
-
-    // Solo se muestra si hay notas
-    notasPedido?.let { println("Nota recibida: $it") }
+    // Elegir la pizza, la cantidad y las notas del pedido
+    val pizzaElegida = elegirPizza(carta)
+    val cantidadPizzas = leerCantidadPizzas(pizzaElegida)
+    val notasPedido = leerNotas()
 
     // ---------- 3. Cálculo del total ----------
 
@@ -614,49 +688,22 @@ fun main() {
 
     // ---------- 4. Verificación de stock y repartidor ----------
 
-    // Ingredientes que necesita el pedido completo
-    val necesarios = calcularIngredientesNecesarios(pizzaElegida.ingredientes, cantidadPizzas)
-
-    // Revisar cada ingrediente necesario y guardar los que no alcanzan
-    val ingredientesFaltantes = mutableListOf<String>()
-    for ((ingrediente, necesario) in necesarios) {
-        val disponible = inventario[ingrediente] ?: 0
-        when {
-            necesario <= disponible -> println("OK: $ingrediente (necesario: $necesario, disponible: $disponible)")
-            else -> ingredientesFaltantes.add(ingrediente)
-        }
-    }
-
-    val pedidoConfirmado: Boolean = ingredientesFaltantes.isEmpty()
+    // Revisa los ingredientes; si alcanzan, se descuentan del inventario
+    val pedidoConfirmado: Boolean = verificarStock(pedidoCliente, inventario)
 
     estadoPedido = if (pedidoConfirmado) {
-        // Descontar del inventario lo que usa el pedido
-        descontarInventario(inventario, necesarios)
-        println("\nPedido confirmado. Inventario restante: $inventario")
         pedidoCliente.estado
     } else {
-        println("\nEl pedido no puede completarse. Faltan los siguientes ingredientes:")
-        for (ingrediente in ingredientesFaltantes) {
-            val necesario = necesarios[ingrediente] ?: 0
-            val disponible = inventario[ingrediente] ?: 0
-            val faltan = necesario - disponible
-            println("- $ingrediente: necesario $necesario, disponible $disponible")
-            println("  Pasos para reabastecer:")
-            println("  1. Contactar al proveedor.")
-            println("  2. Solicitar $faltan unidades de $ingrediente.")
-            println("  3. Actualizar el inventario.")
-        }
         "Rechazado por falta de ingredientes"
     }
 
     // Se asigna repartidor solo si el pedido se confirmó
     if (pedidoConfirmado) {
         // El más cercano que esté disponible
-        val repartidorCercano = repartidores.sortedBy { it.distanciaKm }.find { it.disponible }
+        val repartidorCercano = asignarRepartidor(repartidores)
         if (repartidorCercano != null) {
             repartidorAsignado = repartidorCercano
             textoRepartidor = repartidorCercano.nombre
-            println("Repartidor asignado: ${repartidorCercano.nombre} (a ${repartidorCercano.distanciaKm} km)")
         } else {
             textoRepartidor = "Sin repartidores disponibles"
         }
