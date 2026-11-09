@@ -67,6 +67,19 @@ class Producto(val nombre: String, val precio: Double, val ingredientes: Map<Str
         val textoIngredientes = ingredientes.map { "${it.key} x${it.value}" }.joinToString(", ")
         return "$nombre - $$precio | Ingredientes: $textoIngredientes"
     }
+
+    // Dos productos son iguales si tienen el mismo nombre y la misma categoría
+    // (el precio y los ingredientes no cuentan)
+    override fun equals(other: Any?): Boolean {
+        if (this === other) return true          // es el mismo objeto
+        if (other !is Producto) return false     // no es un Producto
+        return nombre == other.nombre && categoria == other.categoria
+    }
+
+    // Se calcula con los mismos datos que equals, para que sea coherente
+    override fun hashCode(): Int {
+        return 31 * nombre.hashCode() + categoria.hashCode()
+    }
 }
 
 // Marca un producto de la carta que puede entrar en promociones
@@ -640,6 +653,22 @@ fun main() {
         println("Error al combinar: ${e.message}.")
     }
     println("=".repeat(53))
+
+    // ---------- Comparación de productos con == ----------
+
+    println("\n========== COMPARACIÓN DE PRODUCTOS (==) ==========")
+    val pepperoniOtroPrecio = Producto("Pepperoni", 9990.0, mapOf("masa" to 1), Categoria.PIZZA)
+    val pepperoniBebida = Producto("Pepperoni", 8990.0, emptyMap(), Categoria.BEBIDA)
+
+    // Mismo nombre y categoría, distinto precio: son iguales
+    println("Pepperoni == Pepperoni a $9990 (PIZZA): ${Carta.pepperoni == pepperoniOtroPrecio}")
+    // Distinto nombre: no son iguales
+    println("Pepperoni == Napolitana: ${Carta.pepperoni == Carta.napolitana}")
+    // Mismo nombre, distinta categoría: no son iguales
+    println("Pepperoni (PIZZA) == Pepperoni (BEBIDA): ${Carta.pepperoni == pepperoniBebida}")
+    // === revisa si es el mismo objeto en memoria, no si son iguales
+    println("Pepperoni === Pepperoni a $9990 (PIZZA): ${Carta.pepperoni === pepperoniOtroPrecio}")
+    println("=".repeat(51))
 
     // ---------- 6. Reporte de pedidos del día ----------
 
