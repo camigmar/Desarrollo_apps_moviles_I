@@ -174,6 +174,26 @@ class Pedido(val cliente: Cliente, val productos: List<Producto>, val notas: Str
         return productos.groupBy { it.nombre }.map { "${it.value.size} ${it.key}" }.joinToString(", ")
     }
 
+    // Operador +: junta dos pedidos del mismo cliente en uno nuevo (los originales no cambian)
+    // Los montos se recalculan solos porque dependen de la lista de productos y la fecha
+    operator fun plus(otro: Pedido): Pedido {
+        require(cliente.correo == otro.cliente.correo) {
+            "Solo se pueden combinar pedidos del mismo cliente (${cliente.nombre} y ${otro.cliente.nombre} son distintos)"
+        }
+
+        // Notas: ambas unidas con " | ", o la que exista, o null si no hay ninguna
+        val notasCombinadas = when {
+            notas != null && otro.notas != null -> "$notas | ${otro.notas}"
+            notas != null -> notas
+            else -> otro.notas
+        }
+
+        // Se usa la fecha más reciente de los dos pedidos
+        val fechaMasReciente = if (fecha.isAfter(otro.fecha)) fecha else otro.fecha
+
+        return Pedido(cliente, productos + otro.productos, notasCombinadas, fechaMasReciente)
+    }
+
     // Cambia el estado solo si es uno de los permitidos
     fun cambiarEstado(nuevoEstado: String) {
         val estadosValidos = listOf("En preparación", "Listo", "En camino")
@@ -593,6 +613,33 @@ fun main() {
         println(describirClase(clase))
         println("-".repeat(50))
     }
+
+    // ---------- Pedidos combinados con el operador + ----------
+
+    println("\n========== PEDIDOS COMBINADOS (operador +) ==========")
+    val clienteMaria = Cliente("María Soto", "987654321", "maria.soto@correo.cl", "Los Aromos 123")
+    val pedidoMaria1 = Pedido(clienteMaria, listOf(Carta.pepperoni, Carta.pepperoni), fecha = LocalDate.of(2026, 10, 15))
+    val pedidoMaria2 = Pedido(clienteMaria, listOf(Carta.hawaiana, Carta.hawaiana), fecha = LocalDate.now())
+
+    println("Pedido 1 (${pedidoMaria1.fecha}): ${pedidoMaria1.resumirProductos()} | Total: ${formatearMonto(pedidoMaria1.calcularTotal())}")
+    println("Pedido 2 (${pedidoMaria2.fecha}): ${pedidoMaria2.resumirProductos()} | Total: ${formatearMonto(pedidoMaria2.calcularTotal())}")
+
+    // Se suman con + y se obtiene un pedido nuevo
+    val pedidoCombinado = pedidoMaria1 + pedidoMaria2
+    println("Combinado (${pedidoCombinado.fecha}): ${pedidoCombinado.resumirProductos()} | Descuento: ${formatearMonto(pedidoCombinado.calcularDescuento())} | Total: ${formatearMonto(pedidoCombinado.calcularTotal())}")
+
+    // Prueba de error: no se pueden sumar pedidos de clientes distintos
+    println("-".repeat(50))
+    println("Combinando pedidos de clientes distintos...")
+    try {
+        val clienteJuan = Cliente("Juan Pérez", "976543210", "juan.perez@correo.cl", "Av. Matta 456")
+        val pedidoJuan = Pedido(clienteJuan, listOf(Carta.napolitana))
+        val pedidoInvalido = pedidoMaria1 + pedidoJuan
+        println("Pedido combinado: ${pedidoInvalido.resumirProductos()}")
+    } catch (e: IllegalArgumentException) {
+        println("Error al combinar: ${e.message}.")
+    }
+    println("=".repeat(53))
 
     // ---------- 6. Reporte de pedidos del día ----------
 
