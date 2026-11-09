@@ -15,6 +15,7 @@ y ya está configurada en `PizzeriaApp.iml`, así que no hay que descargar nada.
 
 - Pide los datos del cliente (nombre, dirección, celular y correo) y los valida.
 - Permite hacer **varios pedidos**, eligiendo pizzas de una carta numerada.
+- El cliente puede **agregar bebidas** al pedido; el descuento por cantidad cuenta solo las pizzas.
 - Calcula subtotal, descuentos (por cantidad y por promoción) e IVA de 19%.
 - Revisa el inventario de ingredientes y rechaza el pedido si no alcanza.
 - Asigna el repartidor disponible más cercano.

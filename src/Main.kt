@@ -9,7 +9,7 @@ import kotlin.reflect.full.findAnnotation
 import kotlin.reflect.full.hasAnnotation
 import kotlin.reflect.full.memberProperties
 
-// Cantidad de pizzas permitida por pedido (mínimo y máximo)
+// Cantidad permitida de cada producto por pedido (mínimo y máximo)
 val RANGO_CANTIDAD = 1..100
 
 // Período de promoción (desde y hasta, ambos incluidos)
@@ -190,8 +190,11 @@ class Pedido(val cliente: Cliente, val productos: List<Producto>, val notas: Str
     }
 
     // Descuento del pedido: el de cantidad (función existente) más el de promoción si corresponde
+    // El de cantidad cuenta solo las pizzas y se calcula sobre su subtotal; el de promoción, sobre todo el pedido
     fun calcularDescuento(): Double {
-        val descuentoCantidad = calcularDescuento(calcularSubtotal(), productos.size)
+        val cantidadPizzas = productos.count { it.categoria == Categoria.PIZZA }
+        val subtotalPizzas = productos.filter { it.categoria == Categoria.PIZZA }.sumOf { it.precio }
+        val descuentoCantidad = calcularDescuento(subtotalPizzas, cantidadPizzas)
         val descuentoPromocion = if (estaEnPromocion(fecha)) calcularSubtotal() * DESCUENTO_PROMOCION else 0.0
         return descuentoCantidad + descuentoPromocion
     }
@@ -491,69 +494,77 @@ fun generarResumen(idPedido: Int, pedido: Pedido, estado: String, repartidor: St
     return resumen.toString()
 }
 
-// Muestra la carta numerada y pide una opción hasta que sea válida
-// También indica si la pizza elegida es promocionable (leyendo su anotación con reflection)
-fun elegirPizza(carta: List<Producto>): Producto {
-    var pizzaElegida: Producto = carta[0]
+// Muestra las opciones numeradas con el título indicado y pide una opción hasta que sea válida
+// Sirve para pizzas (fuente Carta) y bebidas (fuente Bebidas)
+// También indica si el producto elegido es promocionable (leyendo su anotación en la fuente con reflection)
+fun elegirProducto(opciones: List<Producto>, fuente: Any, titulo: String): Producto {
+    var productoElegido: Producto = opciones[0]
 
-    // Mostrar la carta numerada
-    println("\n--- CARTA ---")
-    for ((indice, pizza) in carta.withIndex()) {
-        println("${indice + 1}. ${pizza.nombre} - ${formatearMonto(pizza.precio)}")
+    // "pizza" o "bebida", para los mensajes
+    val tipo = if (opciones[0].categoria == Categoria.PIZZA) "pizza" else "bebida"
+
+    // Mostrar las opciones numeradas
+    println("\n--- $titulo ---")
+    for ((indice, producto) in opciones.withIndex()) {
+        println("${indice + 1}. ${producto.nombre} - ${formatearMonto(producto.precio)}")
     }
 
-    // Leer la pizza elegida: se repite la pregunta hasta que la opción sea válida
+    // Leer el producto elegido: se repite la pregunta hasta que la opción sea válida
     var opcionValida = false
     while (!opcionValida) {
-        println("Elija una pizza (1 a ${carta.size}):")
+        println("Elija una $tipo (1 a ${opciones.size}):")
         val entradaOpcion = readLine()
 
-        // Si ya no hay entrada (fin de archivo) se elige la primera pizza
+        // Si ya no hay entrada (fin de archivo) se elige la primera opción
         if (entradaOpcion == null) {
-            println("No se recibió la opción, se elige ${carta[0].nombre}.")
-            pizzaElegida = carta[0]
+            println("No se recibió la opción, se elige ${opciones[0].nombre}.")
+            productoElegido = opciones[0]
             break
         }
 
-        // La opción debe ser un número dentro del rango de la carta
+        // La opción debe ser un número dentro del rango de opciones
         val opcion = entradaOpcion.trim().toIntOrNull()
         if (opcion == null) {
             println("Error: debe ingresar un número, por ejemplo 1.")
-        } else if (opcion !in 1..carta.size) {
-            println("Error: la opción debe estar entre 1 y ${carta.size}.")
+        } else if (opcion !in 1..opciones.size) {
+            println("Error: la opción debe estar entre 1 y ${opciones.size}.")
         } else {
-            pizzaElegida = carta[opcion - 1]
+            productoElegido = opciones[opcion - 1]
             opcionValida = true
         }
     }
 
-    // Buscar en Carta la propiedad de la pizza elegida y leer su anotación (reflection)
-    val promocion = Carta::class.memberProperties
-        .find { it.getter.call(Carta) == pizzaElegida }
+    // Buscar en la fuente la propiedad del producto elegido y leer su anotación (reflection)
+    val promocion = fuente::class.memberProperties
+        .find { it.getter.call(fuente) == productoElegido }
         ?.findAnnotation<Promocionable>()
     if (promocion != null) {
-        println("La pizza ${pizzaElegida.nombre} es promocionable: ${promocion.motivo}")
+        println("La $tipo ${productoElegido.nombre} es promocionable: ${promocion.motivo}")
     } else {
-        println("La pizza ${pizzaElegida.nombre} no es promocionable.")
+        println("La $tipo ${productoElegido.nombre} no es promocionable.")
     }
 
-    return pizzaElegida
+    return productoElegido
 }
 
-// Pide la cantidad de pizzas hasta que sea un número dentro de RANGO_CANTIDAD
-fun leerCantidadPizzas(pizza: Producto): Int {
-    var cantidadPizzas = 1
+// Pide la cantidad de un producto (pizza o bebida) hasta que sea un número dentro de RANGO_CANTIDAD
+fun leerCantidad(producto: Producto): Int {
+    var cantidad = 1
+
+    // El texto de la pregunta cambia según si es pizza o bebida
+    val esPizza = producto.categoria == Categoria.PIZZA
+    val pregunta = if (esPizza) "¿Cuántas pizzas ${producto.nombre} desea?" else "¿Cuántas unidades de ${producto.nombre} desea?"
 
     // Se repite la pregunta hasta que la cantidad sea válida
     var cantidadValida = false
     while (!cantidadValida) {
-        println("\n¿Cuántas pizzas ${pizza.nombre} desea? (entre ${RANGO_CANTIDAD.first} y ${RANGO_CANTIDAD.last}, precio unitario: ${formatearMonto(pizza.precio)})")
+        println("\n$pregunta (entre ${RANGO_CANTIDAD.first} y ${RANGO_CANTIDAD.last}, precio unitario: ${formatearMonto(producto.precio)})")
         val entradaCantidad = readLine()
 
         // Si ya no hay entrada (fin de archivo) se evita un ciclo infinito
         if (entradaCantidad == null) {
-            println("No se recibió la cantidad, se asigna 1 pizza.")
-            cantidadPizzas = 1
+            println("No se recibió la cantidad, se asigna 1 ${if (esPizza) "pizza" else "unidad"}.")
+            cantidad = 1
             break
         }
 
@@ -563,7 +574,7 @@ fun leerCantidadPizzas(pizza: Producto): Int {
             require(cantidadLeida in RANGO_CANTIDAD) {
                 "Error: la cantidad debe estar entre ${RANGO_CANTIDAD.first} y ${RANGO_CANTIDAD.last}."
             }
-            cantidadPizzas = cantidadLeida
+            cantidad = cantidadLeida
             cantidadValida = true
         } catch (e: NumberFormatException) {
             // Va primero porque NumberFormatException es un tipo de IllegalArgumentException
@@ -573,7 +584,7 @@ fun leerCantidadPizzas(pizza: Producto): Int {
         }
     }
 
-    return cantidadPizzas
+    return cantidad
 }
 
 // Pide notas opcionales: línea vacía o sin entrada quedan en null
@@ -645,17 +656,29 @@ fun realizarPedido(
     idPedido: Int,
     cliente: Cliente,
     carta: List<Producto>,
+    menuBebidas: List<Producto>,
     inventario: MutableMap<String, Int>,
     repartidores: List<Repartidor>
 ): Pedido? {
-    // Elegir la pizza, la cantidad y las notas del pedido
-    val pizzaElegida = elegirPizza(carta)
-    val cantidadPizzas = leerCantidadPizzas(pizzaElegida)
+    // Elegir la pizza y la cantidad
+    val pizzaElegida = elegirProducto(carta, Carta, "CARTA")
+    val cantidadPizzas = leerCantidad(pizzaElegida)
+
+    // Bebidas opcionales: se agregan mientras el cliente responda "s"
+    val bebidasElegidas = mutableListOf<Producto>()
+    var agregarBebida = preguntarSiNo("¿Desea agregar una bebida? (s/n)")
+    while (agregarBebida) {
+        val bebida = elegirProducto(menuBebidas, Bebidas, "MENÚ DE BEBIDAS")
+        val cantidadBebida = leerCantidad(bebida)
+        bebidasElegidas.addAll(List(cantidadBebida) { bebida })
+        agregarBebida = preguntarSiNo("¿Desea agregar otra bebida? (s/n)")
+    }
+
     val notasPedido = leerNotas()
 
-    // El pedido lleva la pizza repetida tantas veces como pidió el cliente
+    // El pedido lleva la pizza repetida tantas veces como pidió el cliente, más las bebidas
     // Los montos (subtotal, descuento, impuesto y total) los calcula el propio pedido
-    val pedido = Pedido(cliente, List(cantidadPizzas) { pizzaElegida }, notasPedido)
+    val pedido = Pedido(cliente, List(cantidadPizzas) { pizzaElegida } + bebidasElegidas, notasPedido)
 
     // Revisa los ingredientes; si alcanzan, se descuentan del inventario
     val pedidoConfirmado: Boolean = verificarStock(pedido, inventario)
@@ -710,11 +733,11 @@ fun realizarPedido(
     return if (pedidoConfirmado) pedido else null
 }
 
-// Pregunta si se quiere hacer otro pedido hasta recibir "s" o "n" (sin importar mayúsculas)
+// Hace una pregunta de sí o no y la repite hasta recibir "s" o "n" (sin importar mayúsculas)
 // Si ya no hay entrada (fin de archivo) devuelve false para no quedar en un ciclo infinito
-fun preguntarOtroPedido(): Boolean {
+fun preguntarSiNo(mensaje: String): Boolean {
     while (true) {
-        println("\n¿Desea hacer otro pedido? (s/n)")
+        println("\n$mensaje")
         val respuesta = readLine() ?: return false
 
         when (respuesta.trim().lowercase()) {
@@ -723,6 +746,11 @@ fun preguntarOtroPedido(): Boolean {
             else -> println("Error: responda \"s\" para sí o \"n\" para no.")
         }
     }
+}
+
+// Pregunta si se quiere hacer otro pedido
+fun preguntarOtroPedido(): Boolean {
+    return preguntarSiNo("¿Desea hacer otro pedido? (s/n)")
 }
 
 fun main() {
@@ -751,6 +779,9 @@ fun main() {
 
     // Carta que se muestra al cliente para elegir (pizzas del object Carta)
     val carta = listOf(Carta.pepperoni, Carta.napolitana, Carta.hawaiana, Carta.vegetariana, Carta.margarita)
+
+    // Bebidas que se pueden agregar al pedido (del object Bebidas)
+    val menuBebidas = listOf(Bebidas.bebida500, Bebidas.jugoNatural, Bebidas.aguaMineral)
 
     // Repartidores con su distancia al local
     val repartidores = listOf(
@@ -838,7 +869,7 @@ fun main() {
     val pedidosReales = mutableListOf<Pedido>() // solo los confirmados
     var idPedido = 1001
     do {
-        val pedidoReal = realizarPedido(idPedido, cliente, carta, inventario, repartidores)
+        val pedidoReal = realizarPedido(idPedido, cliente, carta, menuBebidas, inventario, repartidores)
         if (pedidoReal != null) {
             pedidosReales.add(pedidoReal)
         }
@@ -999,7 +1030,7 @@ fun main() {
     // Reporte: una línea por pedido
     println("\n========== REPORTE DE PEDIDOS DEL DÍA ==========")
     for (pedido in pedidosDelDia) {
-        println("Cliente: ${pedido.cliente.nombre} | Pizzas: ${pedido.resumirProductos()} | Total: ${formatearMonto(pedido.calcularTotal())} | Estado: ${pedido.estado}")
+        println("Cliente: ${pedido.cliente.nombre} | Productos: ${pedido.resumirProductos()} | Total: ${formatearMonto(pedido.calcularTotal())} | Estado: ${pedido.estado}")
     }
 
     // Separar pedidos completados y pendientes
