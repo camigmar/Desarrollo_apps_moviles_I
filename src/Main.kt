@@ -33,8 +33,11 @@ class Repartidor(nombre: String, telefono: String, val distanciaKm: Double, val 
     }
 }
 
-// Un producto de la carta con su receta (cantidad de cada ingrediente por unidad)
-class Producto(val nombre: String, val precio: Double, val ingredientes: Map<String, Int>) {
+// Tipos de producto que puede tener la carta
+enum class Categoria { PIZZA, BEBIDA, INGREDIENTE }
+
+// Un producto de la carta con su receta (cantidad de cada ingrediente por unidad) y su categoría
+class Producto(val nombre: String, val precio: Double, val ingredientes: Map<String, Int>, val categoria: Categoria) {
 
     // No se permite crear un producto con precio 0 o negativo
     init {
@@ -214,19 +217,24 @@ fun main() {
         "masa" to 20,
         "salsa de tomate" to 20,
         "queso" to 20,
-        "pepperoni" to 10
+        "pepperoni" to 10,
+        "tomate" to 20,
+        "piña" to 10,
+        "jamón" to 10,
+        "verduras" to 15,
+        "albahaca" to 10
     )
 
-    // Receta: unidades de cada ingrediente que usa UNA pizza Pepperoni
-    val recetaPepperoni = mapOf(
-        "masa" to 1,
-        "salsa de tomate" to 1,
-        "queso" to 2,
-        "pepperoni" to 3
-    )
+    // Pizzas de la carta, cada una con su receta (unidades por UNA pizza)
+    val productoPepperoni = Producto("Pepperoni", 8990.0, mapOf("masa" to 1, "salsa de tomate" to 1, "queso" to 2, "pepperoni" to 3), Categoria.PIZZA)
+    val productoNapolitana = Producto("Napolitana", 9490.0, mapOf("masa" to 1, "salsa de tomate" to 1, "queso" to 2, "tomate" to 2), Categoria.PIZZA)
+    val productoHawaiana = Producto("Hawaiana", 9490.0, mapOf("masa" to 1, "salsa de tomate" to 1, "queso" to 2, "piña" to 2, "jamón" to 2), Categoria.PIZZA)
+    val productoVegetariana = Producto("Vegetariana", 9490.0, mapOf("masa" to 1, "salsa de tomate" to 1, "queso" to 2, "verduras" to 3), Categoria.PIZZA)
+    val productoMargarita = Producto("Margarita", 8490.0, mapOf("masa" to 1, "salsa de tomate" to 1, "queso" to 2, "albahaca" to 1), Categoria.PIZZA)
 
-    // Pizza que vende el programa
-    val productoPepperoni = Producto("Pepperoni", 8990.0, recetaPepperoni)
+    // Carta que se muestra al cliente para elegir
+    val carta = listOf(productoPepperoni, productoNapolitana, productoHawaiana, productoVegetariana, productoMargarita)
+    var pizzaElegida: Producto = carta[0]
 
     // Datos del pedido
     val idPedido: Int = 1001
@@ -314,10 +322,41 @@ fun main() {
     // Cliente real con los datos ya validados
     val cliente = Cliente(nombre, telefono, correo, direccion)
 
+    // Mostrar la carta numerada
+    println("\n--- CARTA ---")
+    for ((indice, pizza) in carta.withIndex()) {
+        println("${indice + 1}. ${pizza.nombre} - ${formatearMonto(pizza.precio)}")
+    }
+
+    // Leer la pizza elegida: se repite la pregunta hasta que la opción sea válida
+    var opcionValida = false
+    while (!opcionValida) {
+        println("Elija una pizza (1 a ${carta.size}):")
+        val entradaOpcion = readLine()
+
+        // Si ya no hay entrada (fin de archivo) se elige la primera pizza
+        if (entradaOpcion == null) {
+            println("No se recibió la opción, se elige ${carta[0].nombre}.")
+            pizzaElegida = carta[0]
+            break
+        }
+
+        // La opción debe ser un número dentro del rango de la carta
+        val opcion = entradaOpcion.trim().toIntOrNull()
+        if (opcion == null) {
+            println("Error: debe ingresar un número, por ejemplo 1.")
+        } else if (opcion !in 1..carta.size) {
+            println("Error: la opción debe estar entre 1 y ${carta.size}.")
+        } else {
+            pizzaElegida = carta[opcion - 1]
+            opcionValida = true
+        }
+    }
+
     // Leer cantidad de pizzas: se repite la pregunta hasta que sea válida
     var cantidadValida = false
     while (!cantidadValida) {
-        println("\n¿Cuántas pizzas ${productoPepperoni.nombre} desea? (entre ${RANGO_CANTIDAD.first} y ${RANGO_CANTIDAD.last}, precio unitario: $${productoPepperoni.precio})")
+        println("\n¿Cuántas pizzas ${pizzaElegida.nombre} desea? (entre ${RANGO_CANTIDAD.first} y ${RANGO_CANTIDAD.last}, precio unitario: $${pizzaElegida.precio})")
         val entradaCantidad = readLine()
 
         // Si ya no hay entrada (fin de archivo) se evita un ciclo infinito
@@ -354,12 +393,12 @@ fun main() {
 
     // El pedido lleva la pizza repetida tantas veces como pidió el cliente
     // Los montos (subtotal, descuento, impuesto y total) los calcula el propio pedido
-    val pedidoCliente = Pedido(cliente, List(cantidadPizzas) { productoPepperoni }, notasPedido)
+    val pedidoCliente = Pedido(cliente, List(cantidadPizzas) { pizzaElegida }, notasPedido)
 
     // ---------- 4. Verificación de stock y repartidor ----------
 
     // Ingredientes que necesita el pedido completo
-    val necesarios = calcularIngredientesNecesarios(recetaPepperoni, cantidadPizzas)
+    val necesarios = calcularIngredientesNecesarios(pizzaElegida.ingredientes, cantidadPizzas)
 
     // Revisar cada ingrediente necesario y guardar los que no alcanzan
     val ingredientesFaltantes = mutableListOf<String>()
@@ -441,13 +480,7 @@ fun main() {
 
     // ---------- 6. Reporte de pedidos del día ----------
 
-    // Otras pizzas de la carta, solo para los pedidos de ejemplo
-    val productoNapolitana = Producto("Napolitana", 9490.0, mapOf("masa" to 1, "salsa de tomate" to 1, "queso" to 2, "tomate" to 2))
-    val productoHawaiana = Producto("Hawaiana", 9490.0, mapOf("masa" to 1, "salsa de tomate" to 1, "queso" to 2, "piña" to 2, "jamón" to 2))
-    val productoVegetariana = Producto("Vegetariana", 9490.0, mapOf("masa" to 1, "salsa de tomate" to 1, "queso" to 2, "verduras" to 3))
-    val productoMargarita = Producto("Margarita", 8490.0, mapOf("masa" to 1, "salsa de tomate" to 1, "queso" to 2, "albahaca" to 1))
-
-    // Pedidos de ejemplo del día
+    // Pedidos de ejemplo del día (con las mismas pizzas de la carta)
     val pedidosDelDia = arrayOf(
         Pedido(Cliente("María Soto", "987654321", "maria.soto@correo.cl", "Los Aromos 123"), listOf(productoPepperoni, productoPepperoni)),
         Pedido(Cliente("Juan Pérez", "976543210", "juan.perez@correo.cl", "Av. Matta 456"), listOf(productoNapolitana)),
@@ -489,7 +522,7 @@ fun main() {
     // Precio inválido: el init de Producto lanza IllegalArgumentException
     println("\nCreando un producto con precio -100.0...")
     try {
-        val productoPrueba = Producto("Pizza de prueba", -100.0, mapOf("masa" to 1))
+        val productoPrueba = Producto("Pizza de prueba", -100.0, mapOf("masa" to 1), Categoria.PIZZA)
         println("Producto creado: ${productoPrueba.detallarProducto()}")
     } catch (e: IllegalArgumentException) {
         println("Error al crear el producto: ${e.message}. Corrija el precio e intente de nuevo.")
