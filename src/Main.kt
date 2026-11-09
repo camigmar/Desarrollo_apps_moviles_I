@@ -245,6 +245,17 @@ class Pedido(val cliente: Cliente, val productos: List<Producto>, val notas: Str
             println("Aviso: estado \"$nuevoEstado\" no válido. El pedido sigue \"$estado\".")
         }
     }
+
+    // Desestructuración: val (cliente, productos, total) = pedido
+
+    // Primer valor: el cliente del pedido
+    operator fun component1(): Cliente = cliente
+
+    // Segundo valor: la lista de productos
+    operator fun component2(): List<Producto> = productos
+
+    // Tercer valor: el total a pagar (se calcula al momento)
+    operator fun component3(): Double = calcularTotal()
 }
 
 // 10% de descuento si son más de 3 pizzas
@@ -731,6 +742,27 @@ fun main() {
     // Demostración: un salto no permitido no cambia el estado y muestra un aviso
     println("\nIntentando pasar el pedido de ${pedidosDelDia[0].cliente.nombre} directo a \"En camino\"...")
     pedidosDelDia[0].cambiarEstado("En camino")
+
+    // ---------- Desestructuración de pedidos ----------
+    // Va aquí porque necesita que pedidosDelDia ya exista
+
+    println("\n========== DESESTRUCTURACIÓN DE PEDIDO ==========")
+    // Pedido real del usuario separado en cliente, productos y total
+    val (clientePedido, productosPedido, totalPedido) = pedidoCliente
+    println("Cliente:   ${clientePedido.nombre}")
+    println("Productos: ${productosPedido.size}")
+    println("Total:     ${formatearMonto(totalPedido)}")
+
+    // Desestructuración anidada: del cliente solo se usa el nombre (_ ignora el resto)
+    val (nombreDelCliente, _, _) = clientePedido
+    println("Nombre obtenido del cliente del pedido: $nombreDelCliente")
+
+    // Recorrer los pedidos del día separando cada uno en sus partes
+    println("-".repeat(49))
+    for ((clienteDelDia, productosDelDia, totalDelDia) in pedidosDelDia) {
+        println("${clienteDelDia.nombre} | Productos: ${productosDelDia.size} | Total: ${formatearMonto(totalDelDia)}")
+    }
+    println("=".repeat(49))
 
     // Reporte: una línea por pedido
     println("\n========== REPORTE DE PEDIDOS DEL DÍA ==========")
