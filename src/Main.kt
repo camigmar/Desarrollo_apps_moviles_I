@@ -263,21 +263,29 @@ fun main() {
         telefono = "(000) 000-0000"
     }
 
-    // Leer correo
-    println("Ingrese su correo:")
-    val entradaCorreo = readLine()
-    var textoCorreo: String = ""
-    if (entradaCorreo != null) {
-        textoCorreo = entradaCorreo.trim()
-    }
-
     // El correo es válido si tiene la forma usuario@dominio.ext
     val regexCorreo = Regex("^[\\w.+-]+@[\\w-]+\\.[\\w.]+$")
-    if (regexCorreo.matches(textoCorreo)) {
-        correo = textoCorreo
-    } else {
-        println("Aviso: correo inválido, se asigna valor por defecto.")
-        correo = "correo@invalido.com"
+
+    // Leer correo: se repite la pregunta hasta que sea válido
+    var correoValido = false
+    while (!correoValido) {
+        println("Ingrese su correo:")
+        val entradaCorreo = readLine()
+
+        // Si ya no hay entrada (fin de archivo) se evita un ciclo infinito
+        if (entradaCorreo == null) {
+            println("No se recibió el correo, se asigna valor por defecto.")
+            correo = "correo@invalido.com"
+            break
+        }
+
+        val textoCorreo = entradaCorreo.trim()
+        if (regexCorreo.matches(textoCorreo)) {
+            correo = textoCorreo
+            correoValido = true
+        } else {
+            println("Error: correo inválido, debe tener la forma nombre@dominio.com")
+        }
     }
 
     // Cliente real con los datos ya validados
