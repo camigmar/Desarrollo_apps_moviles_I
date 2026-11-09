@@ -1,4 +1,4 @@
-// Mi primera app en Kotlin - Sistema de pedidos de una pizzería
+// Pizzería Kotlin - Sistema de pedidos por consola (Actividad sumativa Semana 3, Desarrollo App Móviles I)
 
 import java.time.LocalDate
 import java.util.Locale
@@ -513,7 +513,7 @@ fun elegirProducto(opciones: List<Producto>, fuente: Any, titulo: String): Produ
     var opcionValida = false
     while (!opcionValida) {
         println("Elija una $tipo (1 a ${opciones.size}):")
-        val entradaOpcion = readLine()
+        val entradaOpcion = readlnOrNull()
 
         // Si ya no hay entrada (fin de archivo) se elige la primera opción
         if (entradaOpcion == null) {
@@ -559,7 +559,7 @@ fun leerCantidad(producto: Producto): Int {
     var cantidadValida = false
     while (!cantidadValida) {
         println("\n$pregunta (entre ${RANGO_CANTIDAD.first} y ${RANGO_CANTIDAD.last}, precio unitario: ${formatearMonto(producto.precio)})")
-        val entradaCantidad = readLine()
+        val entradaCantidad = readlnOrNull()
 
         // Si ya no hay entrada (fin de archivo) se evita un ciclo infinito
         if (entradaCantidad == null) {
@@ -590,7 +590,7 @@ fun leerCantidad(producto: Producto): Int {
 // Pide notas opcionales: línea vacía o sin entrada quedan en null
 fun leerNotas(): String? {
     println("\n¿Desea agregar notas al pedido? (Enter para omitir)")
-    val notasPedido: String? = readLine()?.trim()?.takeIf { it.isNotEmpty() }
+    val notasPedido: String? = readlnOrNull()?.trim()?.takeIf { it.isNotEmpty() }
 
     // Solo se muestra si hay notas
     notasPedido?.let { println("Nota recibida: $it") }
@@ -738,7 +738,7 @@ fun realizarPedido(
 fun preguntarSiNo(mensaje: String): Boolean {
     while (true) {
         println("\n$mensaje")
-        val respuesta = readLine() ?: return false
+        val respuesta = readlnOrNull() ?: return false
 
         when (respuesta.trim().lowercase()) {
             "s" -> return true
@@ -795,7 +795,7 @@ fun main() {
 
     // Leer nombre
     println("Ingrese su nombre:")
-    val entradaNombre = readLine()
+    val entradaNombre = readlnOrNull()
     if (entradaNombre == null || entradaNombre.trim().isEmpty()) {
         nombre = "Sin dato"
     } else {
@@ -804,7 +804,7 @@ fun main() {
 
     // Leer dirección
     println("Ingrese su dirección:")
-    val entradaDireccion = readLine()
+    val entradaDireccion = readlnOrNull()
     if (entradaDireccion == null || entradaDireccion.trim().isEmpty()) {
         direccion = "Sin dato"
     } else {
@@ -815,7 +815,7 @@ fun main() {
     var telefonoValido = false
     while (!telefonoValido) {
         println("Ingrese su celular (ej: +56 9 6580 1007):")
-        val entradaTelefono = readLine()
+        val entradaTelefono = readlnOrNull()
 
         // Si ya no hay entrada (fin de archivo) se evita un ciclo infinito
         if (entradaTelefono == null) {
@@ -841,7 +841,7 @@ fun main() {
     var correoValido = false
     while (!correoValido) {
         println("Ingrese su correo:")
-        val entradaCorreo = readLine()
+        val entradaCorreo = readlnOrNull()
 
         // Si ya no hay entrada (fin de archivo) se evita un ciclo infinito
         if (entradaCorreo == null) {

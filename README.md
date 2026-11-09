@@ -8,8 +8,18 @@ Actividad sumativa **"Creando soluciones con Kotlin"** – Desarrollo App Móvil
 1. Abrir la carpeta del proyecto en **IntelliJ IDEA**.
 2. Abrir `src/Main.kt` y ejecutar la función `main`.
 
-El proyecto usa la librería **kotlin-reflect**, que viene incluida en la carpeta `lib`
-y ya está configurada en `PizzeriaApp.iml`, así que no hay que descargar nada.
+La librería **kotlin-reflect** viene incluida en la carpeta `lib` y ya está configurada en `PizzeriaApp.iml`.
+La librería **kotlin-stdlib** la descarga IntelliJ automáticamente la primera vez que se abre el proyecto,
+por lo que en ese momento se necesita conexión a internet.
+
+## Versiones usadas
+
+- IntelliJ IDEA 2026.2.3
+- JDK 24
+- Kotlin 2.4.20
+
+El proyecto está configurado con JDK 24. Si el equipo tiene otra versión, IntelliJ pedirá elegir un SDK
+en **File > Project Structure > Project**.
 
 ## Qué hace el programa
 
