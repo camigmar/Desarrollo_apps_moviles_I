@@ -2,6 +2,9 @@
 
 import java.time.LocalDate
 import java.util.Locale
+import kotlin.reflect.full.findAnnotation
+import kotlin.reflect.full.hasAnnotation
+import kotlin.reflect.full.memberProperties
 
 // Cantidad de pizzas permitida por pedido (mínimo y máximo)
 val RANGO_CANTIDAD = 1..100
@@ -61,6 +64,36 @@ class Producto(val nombre: String, val precio: Double, val ingredientes: Map<Str
         val textoIngredientes = ingredientes.map { "${it.key} x${it.value}" }.joinToString(", ")
         return "$nombre - $$precio | Ingredientes: $textoIngredientes"
     }
+}
+
+// Marca un producto de la carta que puede entrar en promociones
+// Se puede leer en tiempo de ejecución (reflection)
+@Target(AnnotationTarget.PROPERTY)
+@Retention(AnnotationRetention.RUNTIME)
+@MustBeDocumented
+annotation class Promocionable(val motivo: String = "")
+
+// Pizzas de la carta, cada una con su receta (unidades por UNA pizza)
+object Carta {
+    @Promocionable(motivo = "Más vendida")
+    val pepperoni = Producto("Pepperoni", 8990.0, mapOf("masa" to 1, "salsa de tomate" to 1, "queso" to 2, "pepperoni" to 3), Categoria.PIZZA)
+
+    val napolitana = Producto("Napolitana", 9490.0, mapOf("masa" to 1, "salsa de tomate" to 1, "queso" to 2, "tomate" to 2), Categoria.PIZZA)
+
+    val hawaiana = Producto("Hawaiana", 9490.0, mapOf("masa" to 1, "salsa de tomate" to 1, "queso" to 2, "piña" to 2, "jamón" to 2), Categoria.PIZZA)
+
+    @Promocionable(motivo = "Opción saludable")
+    val vegetariana = Producto("Vegetariana", 9490.0, mapOf("masa" to 1, "salsa de tomate" to 1, "queso" to 2, "verduras" to 3), Categoria.PIZZA)
+
+    @Promocionable(motivo = "La más económica")
+    val margarita = Producto("Margarita", 8490.0, mapOf("masa" to 1, "salsa de tomate" to 1, "queso" to 2, "albahaca" to 1), Categoria.PIZZA)
+}
+
+// Productos de la carta marcados con @Promocionable (se buscan con reflection)
+fun productosPromocionables(): List<Producto> {
+    return Carta::class.memberProperties
+        .filter { it.hasAnnotation<Promocionable>() }
+        .mapNotNull { it.getter.call(Carta) as? Producto }
 }
 
 // Un pedido de un cliente con los productos que pidió
@@ -220,6 +253,10 @@ fun generarResumen(idPedido: Int, pedido: Pedido, estado: String, repartidor: St
     resumen.appendLine("  Estado:     $estado")
     resumen.appendLine("  Repartidor: $repartidor")
     resumen.appendLine("  Notas:      ${pedido.notas ?: "Sin notas"}")
+    resumen.appendLine(lineaSimple)
+
+    // Pizzas de la carta que pueden entrar en promociones
+    resumen.appendLine("  Promocionables: ${productosPromocionables().joinToString(", ") { it.nombre }}")
     resumen.append(lineaDoble)
 
     return resumen.toString()
@@ -249,15 +286,8 @@ fun main() {
         "albahaca" to 10
     )
 
-    // Pizzas de la carta, cada una con su receta (unidades por UNA pizza)
-    val productoPepperoni = Producto("Pepperoni", 8990.0, mapOf("masa" to 1, "salsa de tomate" to 1, "queso" to 2, "pepperoni" to 3), Categoria.PIZZA)
-    val productoNapolitana = Producto("Napolitana", 9490.0, mapOf("masa" to 1, "salsa de tomate" to 1, "queso" to 2, "tomate" to 2), Categoria.PIZZA)
-    val productoHawaiana = Producto("Hawaiana", 9490.0, mapOf("masa" to 1, "salsa de tomate" to 1, "queso" to 2, "piña" to 2, "jamón" to 2), Categoria.PIZZA)
-    val productoVegetariana = Producto("Vegetariana", 9490.0, mapOf("masa" to 1, "salsa de tomate" to 1, "queso" to 2, "verduras" to 3), Categoria.PIZZA)
-    val productoMargarita = Producto("Margarita", 8490.0, mapOf("masa" to 1, "salsa de tomate" to 1, "queso" to 2, "albahaca" to 1), Categoria.PIZZA)
-
-    // Carta que se muestra al cliente para elegir
-    val carta = listOf(productoPepperoni, productoNapolitana, productoHawaiana, productoVegetariana, productoMargarita)
+    // Carta que se muestra al cliente para elegir (pizzas del object Carta)
+    val carta = listOf(Carta.pepperoni, Carta.napolitana, Carta.hawaiana, Carta.vegetariana, Carta.margarita)
     var pizzaElegida: Producto = carta[0]
 
     // Datos del pedido
@@ -375,6 +405,16 @@ fun main() {
             pizzaElegida = carta[opcion - 1]
             opcionValida = true
         }
+    }
+
+    // Buscar en Carta la propiedad de la pizza elegida y leer su anotación (reflection)
+    val promocion = Carta::class.memberProperties
+        .find { it.getter.call(Carta) == pizzaElegida }
+        ?.findAnnotation<Promocionable>()
+    if (promocion != null) {
+        println("La pizza ${pizzaElegida.nombre} es promocionable: ${promocion.motivo}")
+    } else {
+        println("La pizza ${pizzaElegida.nombre} no es promocionable.")
     }
 
     // Leer cantidad de pizzas: se repite la pregunta hasta que sea válida
@@ -507,11 +547,11 @@ fun main() {
     // Pedidos de ejemplo del día (con las mismas pizzas de la carta)
     // El de María tiene fecha fuera de la promoción, para comparar
     val pedidosDelDia = arrayOf(
-        Pedido(Cliente("María Soto", "987654321", "maria.soto@correo.cl", "Los Aromos 123"), listOf(productoPepperoni, productoPepperoni), fecha = LocalDate.of(2026, 10, 15)),
-        Pedido(Cliente("Juan Pérez", "976543210", "juan.perez@correo.cl", "Av. Matta 456"), listOf(productoNapolitana)),
-        Pedido(Cliente("Carla Rojas", "965432109", "carla.rojas@correo.cl", "Pasaje Sur 789"), listOf(productoHawaiana, productoHawaiana, productoHawaiana)),
-        Pedido(Cliente("Diego Muñoz", "954321098", "diego.munoz@correo.cl", "Calle Norte 321"), listOf(productoVegetariana, productoPepperoni)),
-        Pedido(Cliente("Valentina Díaz", "943210987", "valentina.diaz@correo.cl", "Av. Grecia 654"), listOf(productoMargarita, productoMargarita, productoMargarita, productoMargarita))
+        Pedido(Cliente("María Soto", "987654321", "maria.soto@correo.cl", "Los Aromos 123"), listOf(Carta.pepperoni, Carta.pepperoni), fecha = LocalDate.of(2026, 10, 15)),
+        Pedido(Cliente("Juan Pérez", "976543210", "juan.perez@correo.cl", "Av. Matta 456"), listOf(Carta.napolitana)),
+        Pedido(Cliente("Carla Rojas", "965432109", "carla.rojas@correo.cl", "Pasaje Sur 789"), listOf(Carta.hawaiana, Carta.hawaiana, Carta.hawaiana)),
+        Pedido(Cliente("Diego Muñoz", "954321098", "diego.munoz@correo.cl", "Calle Norte 321"), listOf(Carta.vegetariana, Carta.pepperoni)),
+        Pedido(Cliente("Valentina Díaz", "943210987", "valentina.diaz@correo.cl", "Av. Grecia 654"), listOf(Carta.margarita, Carta.margarita, Carta.margarita, Carta.margarita))
     )
 
     // Todos parten "En preparación"; se actualizan los que ya avanzaron
