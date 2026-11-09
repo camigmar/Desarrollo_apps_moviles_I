@@ -38,6 +38,19 @@ class Cliente(nombre: String, telefono: String, val correo: String, val direccio
         return "Soy el cliente $nombre | Teléfono: $contacto | Correo: $correo | Dirección: $direccion"
     }
 
+    // Dos clientes son iguales si tienen el mismo nombre y el mismo correo
+    // (el correo sin importar mayúsculas; el teléfono y la dirección no cuentan)
+    override fun equals(other: Any?): Boolean {
+        if (this === other) return true          // es el mismo objeto
+        if (other !is Cliente) return false      // no es un Cliente
+        return nombre == other.nombre && correo.equals(other.correo, ignoreCase = true)
+    }
+
+    // Se calcula con los mismos datos que equals (correo en minúsculas), para que sea coherente
+    override fun hashCode(): Int {
+        return 31 * nombre.hashCode() + correo.lowercase().hashCode()
+    }
+
     // Desestructuración: val (nombre, correo, telefono) = cliente
 
     // Primer valor: el nombre
@@ -312,6 +325,30 @@ fun formatearTelefono(telefono: String): String? {
     // Se arma el formato con los grupos capturados (siempre con +56)
     val (nueve, parte1, parte2) = resultado.destructured
     return "+56 ($nueve) $parte1-$parte2"
+}
+
+// Agrega un cliente al registro; el Set no acepta repetidos (usa equals y hashCode)
+// Devuelve true si se registró o false si ya existía
+fun registrarCliente(registro: MutableSet<Cliente>, cliente: Cliente): Boolean {
+    val agregado = registro.add(cliente)
+    if (agregado) {
+        println("Cliente registrado: ${cliente.nombre} (${cliente.correo})")
+    } else {
+        println("Aviso: el cliente ${cliente.nombre} (${cliente.correo}) ya estaba registrado.")
+    }
+    return agregado
+}
+
+// Agrega un producto al registro; el Set no acepta repetidos (usa equals y hashCode)
+// Devuelve true si se registró o false si ya existía
+fun registrarProducto(registro: MutableSet<Producto>, producto: Producto): Boolean {
+    val agregado = registro.add(producto)
+    if (agregado) {
+        println("Producto registrado: ${producto.nombre} (${producto.categoria})")
+    } else {
+        println("Aviso: el producto ${producto.nombre} (${producto.categoria}) ya estaba registrado.")
+    }
+    return agregado
 }
 
 // Resumen completo del pedido listo para imprimir
@@ -763,6 +800,41 @@ fun main() {
         println("${clienteDelDia.nombre} | Productos: ${productosDelDia.size} | Total: ${formatearMonto(totalDelDia)}")
     }
     println("=".repeat(49))
+
+    // ---------- Registro sin duplicados ----------
+
+    println("\n========== REGISTRO SIN DUPLICADOS (equals y hashCode) ==========")
+
+    // Clientes: el del usuario, los del día y un duplicado de María que debe rechazarse
+    val registroClientes = mutableSetOf<Cliente>()
+    registrarCliente(registroClientes, cliente)
+    for (pedido in pedidosDelDia) {
+        registrarCliente(registroClientes, pedido.cliente)
+    }
+    val mariaDuplicada = Cliente("María Soto", "912345678", "maria.soto@correo.cl", "Otra Calle 999")
+    registrarCliente(registroClientes, mariaDuplicada)
+    println("Clientes registrados: ${registroClientes.size}")
+    println("-".repeat(65))
+
+    // Productos: las 5 pizzas, una Pepperoni repetida (otro precio) y una bebida
+    val registroProductos = mutableSetOf<Producto>()
+    for (pizza in listOf(Carta.pepperoni, Carta.napolitana, Carta.hawaiana, Carta.vegetariana, Carta.margarita)) {
+        registrarProducto(registroProductos, pizza)
+    }
+    registrarProducto(registroProductos, Producto("Pepperoni", 9990.0, mapOf("masa" to 1), Categoria.PIZZA))
+    registrarProducto(registroProductos, Bebidas.jugoNatural)
+    println("Productos registrados: ${registroProductos.size}")
+    println("-".repeat(65))
+
+    // Dos listas son iguales si sus elementos son iguales (usa el equals de Producto)
+    val listaCarta = listOf(Carta.pepperoni, Carta.margarita)
+    val listaParecida = listOf(Producto("Pepperoni", 1.0, emptyMap(), Categoria.PIZZA), Producto("Margarita", 2.0, emptyMap(), Categoria.PIZZA))
+    println("Lista [Pepperoni, Margarita] == lista con otros precios: ${listaCarta == listaParecida}")
+
+    // Comparar con null no falla: simplemente da false
+    val clienteSinDatos: Cliente? = null
+    println("Cliente en null == ${cliente.nombre}: ${clienteSinDatos == cliente}")
+    println("=".repeat(65))
 
     // Reporte: una línea por pedido
     println("\n========== REPORTE DE PEDIDOS DEL DÍA ==========")
