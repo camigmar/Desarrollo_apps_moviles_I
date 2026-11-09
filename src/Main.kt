@@ -207,11 +207,29 @@ class Pedido(val cliente: Cliente, val productos: List<Producto>, val notas: Str
         return Pedido(cliente, productos + otro.productos, notasCombinadas, fechaMasReciente)
     }
 
-    // Cambia el estado solo si es uno de los permitidos
+    // Cambia el estado solo si es uno de los permitidos y el cambio sigue el orden correcto
     fun cambiarEstado(nuevoEstado: String) {
         val estadosValidos = listOf("En preparación", "Listo", "En camino")
+
+        // A qué estados se puede pasar desde cada uno ("En camino" es el estado final)
+        val cambiosPermitidos = mapOf(
+            "En preparación" to listOf("Listo"),
+            "Listo" to listOf("En camino"),
+            "En camino" to emptyList()
+        )
+        val siguientes = cambiosPermitidos[estado] ?: emptyList()
+
         if (nuevoEstado in estadosValidos) {
-            estado = nuevoEstado
+            if (nuevoEstado in siguientes) {
+                estado = nuevoEstado
+            } else if (siguientes.isEmpty()) {
+                // El pedido ya llegó al estado final
+                println("Aviso: el pedido ya está \"$estado\" (estado final), no tiene más cambios.")
+            } else {
+                // El estado existe, pero no se puede saltar a él desde el actual
+                val textoSiguientes = siguientes.joinToString(", ") { "\"$it\"" }
+                println("Aviso: no se puede pasar de \"$estado\" a \"$nuevoEstado\". Siguiente estado permitido: $textoSiguientes.")
+            }
         } else {
             println("Aviso: estado \"$nuevoEstado\" no válido. El pedido sigue \"$estado\".")
         }
@@ -683,9 +701,15 @@ fun main() {
     )
 
     // Todos parten "En preparación"; se actualizan los que ya avanzaron
+    // El de Carla pasa primero por "Listo" y luego a "En camino"
     pedidosDelDia[1].cambiarEstado("Listo")
+    pedidosDelDia[2].cambiarEstado("Listo")
     pedidosDelDia[2].cambiarEstado("En camino")
     pedidosDelDia[4].cambiarEstado("Listo")
+
+    // Demostración: un salto no permitido no cambia el estado y muestra un aviso
+    println("\nIntentando pasar el pedido de ${pedidosDelDia[0].cliente.nombre} directo a \"En camino\"...")
+    pedidosDelDia[0].cambiarEstado("En camino")
 
     // Reporte: una línea por pedido
     println("\n========== REPORTE DE PEDIDOS DEL DÍA ==========")
