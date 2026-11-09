@@ -92,11 +92,23 @@ object Carta {
     val margarita = Producto("Margarita", 8490.0, mapOf("masa" to 1, "salsa de tomate" to 1, "queso" to 2, "albahaca" to 1), Categoria.PIZZA)
 }
 
-// Productos de la carta marcados con @Promocionable (se buscan con reflection)
-fun productosPromocionables(): List<Producto> {
-    return Carta::class.memberProperties
+// Bebidas de la carta: no tienen receta, por eso el mapa de ingredientes va vacío
+object Bebidas {
+    @Promocionable(motivo = "Ideal para compartir")
+    val bebida500 = Producto("Bebida 500 ml", 1490.0, emptyMap(), Categoria.BEBIDA)
+
+    @Promocionable(motivo = "Fruta de temporada")
+    val jugoNatural = Producto("Jugo natural", 2490.0, emptyMap(), Categoria.BEBIDA)
+
+    val aguaMineral = Producto("Agua mineral", 1190.0, emptyMap(), Categoria.BEBIDA)
+}
+
+// Productos marcados con @Promocionable dentro de la fuente indicada (por ejemplo Carta o Bebidas)
+// Se buscan con reflection: se revisa cada propiedad y se lee su valor con el getter
+fun productosPromocionables(fuente: Any): List<Producto> {
+    return fuente::class.memberProperties
         .filter { it.hasAnnotation<Promocionable>() }
-        .mapNotNull { it.getter.call(Carta) as? Producto }
+        .mapNotNull { it.getter.call(fuente) as? Producto }
 }
 
 // Describe una clase con reflection: nombre, propiedades y funciones declaradas en ella
@@ -285,8 +297,9 @@ fun generarResumen(idPedido: Int, pedido: Pedido, estado: String, repartidor: St
     resumen.appendLine("  Notas:      ${pedido.notas ?: "Sin notas"}")
     resumen.appendLine(lineaSimple)
 
-    // Pizzas de la carta que pueden entrar en promociones
-    resumen.appendLine("  Promocionables: ${productosPromocionables().joinToString(", ") { it.nombre }}")
+    // Pizzas y bebidas que pueden entrar en promociones, ordenadas por nombre
+    val promocionables = productosPromocionables(Carta) + productosPromocionables(Bebidas)
+    resumen.appendLine("  Promocionables: ${promocionables.map { it.nombre }.sorted().joinToString(", ")}")
     resumen.append(lineaDoble)
 
     return resumen.toString()
@@ -575,7 +588,7 @@ fun main() {
     // ---------- Análisis de clases con reflection ----------
 
     println("\n========== ANÁLISIS DE CLASES (reflection) ==========")
-    val clasesAnalizadas = listOf(Cliente::class, Producto::class, Pedido::class)
+    val clasesAnalizadas = listOf(Cliente::class, Producto::class, Pedido::class, Bebidas::class)
     for (clase in clasesAnalizadas) {
         println(describirClase(clase))
         println("-".repeat(50))
